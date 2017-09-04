@@ -37,5 +37,7 @@ while averageMeters < 0.3048
     plot(timeArray, leftArray, timeArray, rightArray);
     pause(0.1);
 end
-
+title('Lab 1: Robot Encoder Readings vs Time')
+xlabel('Time (seconds)')
+ylabel('Encoder Readings (cm)')
 sendVelocity(robot,0,0);
