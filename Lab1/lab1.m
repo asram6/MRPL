@@ -38,4 +38,4 @@ while averageMeters < 0.3048
     pause(0.1);
 end
 
-robot.sendVelocity(0,0);
+sendVelocity(robot,0,0);
