@@ -23,13 +23,10 @@ end
 robot.sendVelocity(0,0);
 pause(1)
 
-leftEncoder = robot.encoders.LatestMessage.Vector.Y;
-rightEncoder = robot.encoders.LatestMessage.Vector.X;
-averageMeters = 0;
-while averageMeters < 0.3048
+while averageMeters > 0
     robot.sendVelocity(-0.05, -0.05);
-    differenceLeft = abs(robot.encoders.LatestMessage.Vector.Y - leftEncoder);
-    differenceRight = abs(robot.encoders.LatestMessage.Vector.X - rightEncoder);
+    differenceLeft = robot.encoders.LatestMessage.Vector.Y - leftEncoder;
+    differenceRight = robot.encoders.LatestMessage.Vector.X - rightEncoder;
     averageMeters = (differenceLeft + differenceRight) / 2;
     timeArray = [timeArray toc(tstart)];
     leftArray = [leftArray differenceLeft*100];
