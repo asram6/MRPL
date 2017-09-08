@@ -13,6 +13,18 @@ classdef rangeImage
             x = r*cos(th);
             y = r*sin(th);
         end
+        
+        function [] = followStraight(robot)
+            idealObjectRange = 0.5;
+            gain = .1;
+            while true
+                [x y th] = findNearest(robot);
+                dist = sqrt(x.^2 + y.^2);
+                v = (dist-idealObjectRange)*gain;
+                robot.sendVelocity(v, v);
+            end
+        end
+        
         function [x, y, th] = findNearest(robot)
            
            ranges = robot.laser.LatestMessage.Ranges;
@@ -39,10 +51,10 @@ classdef rangeImage
             robot = raspbot('Raspbot-09');
             robot.startLaser();
             pause(4);
-            while true
-                rangeImage.findNearest(robot);
-                pause(0.2);
-            end
+            %while true
+            rangeImage.followStraight(robot);
+            %    pause(0.2);
+            %end
             robot.stopLaser();
         end
     end
