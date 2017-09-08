@@ -1,11 +1,46 @@
 classdef rangeImage
 
     methods
-        function [ x y th] = irToXy( i, r )
+        function [ x, y, th] = irToXy( i, r )
         % irToXy finds position and bearing of a range pixel endpoint
         % Finds the position and bearing of the endpoint of a range pixel in
         % the plane.
-         % Fill in code here
+            th1 = 0; %this needs 2 change
+            th = th1 - (i-1)*(pi/180);
+            x = r*cos(th);
+            y = r*sin(th);
+        end
+        
+        function [x, y, th] = findNearest()
+           ranges = robot.laser.LatestMessage.Ranges;
+           minDist = 1.0;
+           for i = 1:360 
+               if ((ranges(i) < minDist) && (ranges(i) > 0.06))
+                   [x1, y1, th1] = irToXy(i, ranges(i));
+                   if (abs(th1) < (pi/2))
+                       x = x1;
+                       y = y1;
+                       th = th1;
+                       minDist = ranges(i);
+                   end
+               end
+           end
+           plot(-1:1,-1:1);
+           hold on
+           plot(x, y, 'x');
+           
+        end
+    end
+    methods(Static)
+        function [] = test()
+            robot = raspbot('Raspbot-09');
+            robot.startLaser();
+            pause(4);
+            while true
+                findNearest();
+                pause(0.2);
+            end
+            robot.stopLaser();
         end
     end
 end
