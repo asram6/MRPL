@@ -16,15 +16,16 @@ classdef rangeImage
         
         function [] = followStraight(robot)
             idealObjectRange = 0.5;
-            gain = .1;
+            gain = .3;
             while true
-                [x y th] = findNearest(robot);
+                [x, y, ~] = rangeImage.findNearest(robot);
                 dist = sqrt(x.^2 + y.^2);
                 v = (dist-idealObjectRange)*gain;
-                if (dist == 0)
-                    v = 0
+                if ((dist == 0) || (abs(dist-idealObjectRange) < .07))
+                    v = 0;
                 end
                 robot.sendVelocity(v, v);
+                pause(0.3);
             end
         end
         
@@ -34,6 +35,7 @@ classdef rangeImage
            minDist = 1.0;
            x = 0;
            y = 0;
+           th = 1;
            for i = 1:360 
                if ((ranges(i) < minDist) && (ranges(i) > 0.06))
                    [x1, y1, th1] = rangeImage.irToXy(i, ranges(i));
