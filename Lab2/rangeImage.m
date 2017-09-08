@@ -21,6 +21,9 @@ classdef rangeImage
                 [x y th] = findNearest(robot);
                 dist = sqrt(x.^2 + y.^2);
                 v = (dist-idealObjectRange)*gain;
+                if (dist == 0)
+                    v = 0
+                end
                 robot.sendVelocity(v, v);
             end
         end
