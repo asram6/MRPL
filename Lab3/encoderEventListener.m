@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-function encoderEventListener()
+function encoderEventListener(handle,event)
     %EncoderEventListener Invoked when new encoder data arrives. 
     % A MATLAB event listener for the Robot. Invoked when
     % encoder data arrives.
@@ -27,15 +26,4 @@ function encoderEventListener()
     encoderDiff = encoderNow - encoderPrev;
     velocity = encoderDiff/tDiff;
     plot(tDiff, velocity);
-    
-=======
-function encoderEventListener(handle, event)
-    %EncoderEventListener Invoked when new encoder data arrives. 
-    % A MATLAB event listener for the Robot. Invoked when
-    % encoder data arrives.
-    fprintf("HERE");
-    fprintf('%d', 1);
-    fprintf('%d', handle);
-    fprintf('%d', event);
->>>>>>> a2790b87750cd09b8b8c8463a4a183dad957e81d
 end
