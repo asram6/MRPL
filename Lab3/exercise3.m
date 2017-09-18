@@ -9,6 +9,9 @@ classdef exercise3
            y = 0;
            xArr = [];
            yArr = [];
+           myPlot = plot(xArr, yArr, 'b-');
+           xlim([0.0, 0.5]);
+           ylim([0.0, 0.5]);
            for i = (1:length(vr))
                V = (vl(i)+vr(i))/2;
                omega = (vr(i) - vl(i))/0.085;
@@ -24,10 +27,16 @@ classdef exercise3
                fprintf("in steer loop %d %d\n", x, y);
                xArr = [xArr, x];
                yArr = [yArr, y];
+               pause(0.005);
+%                g = sprintf('%d ', [get(myPlot, 'xdata') x]);
+%                fprintf("vector %s -- \n", g);
+%                set(myPlot, 'xdata', xArr, 'ydata', yArr);
+%                myPlot;
                plot(xArr, yArr);
                %axis([0 .01 0 .01]);
                th = th + omega*dt(i)/2;
            end
+           
        end
        
        function cornuSpiral()
@@ -87,6 +96,10 @@ classdef exercise3
            tstart = tic;
            t = toc(tstart);
            vlArr = []; vrArr = []; dtArr = [];
+           xArr = []; yArr = [];
+           robot = raspbot("Rasbot-9");
+           xprev = robot.encoders.LatestMessage.Vector.X;
+           yprev = robot.encoders.LatestMessage.Vector.Y;
            while(t < Tf) 
                st = vt*t/ks;
                angle = ktheta*st;
@@ -102,14 +115,20 @@ classdef exercise3
                vl = vt - (0.0425) * omegat;
                vlArr = [vlArr, vl];
                vrArr = [vrArr, vr];
+               robot.sendVelocity(vl, vr);
+               x = robot.encoders.LatestMessage.Vector.X - xprev;
+               y = robot.encoders.LatestMessage.Vector.Y - yprev;
+               xArr = [xArr x];
+               yArr = [yArr -y];
+               plot(yArr, xArr);
                T = toc(tstart);
                dtArr = [dtArr, (T - t)];
                t = T;
                pause(0.1);
-               fprintf("%d %d\n", t, Tf);
+               fprintf("%d %d\n", vl, vr);
            end
            fprintf("%d \n", length(vlArr));
-           exercise3.modelDiffSteerRobot(vlArr, vrArr, 0, Tf, dtArr); 
+           %exercise3.modelDiffSteerRobot(vlArr, vrArr, 0, Tf, dtArr); 
        end
        
    end
