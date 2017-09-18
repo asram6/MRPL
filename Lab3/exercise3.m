@@ -81,21 +81,14 @@ classdef exercise3
        end
        
        function figure8()
-           vt = 0.2;
-           sf = 1;
-           tf = sf/vt;
-           ktheta = 2*pi/sf;
-           kk = 15.1084;
-           ks = 3;
-           Tf = ks * tf;
+           vt = 0.2; sf = 1; tf = sf/vt;
+           ktheta = 2*pi/sf; kk = 15.1084;
+           ks = 3; Tf = ks * tf;
            tstart = tic;
            t = toc(tstart);
-           vlArr = [];
-           vrArr = [];
-           dtArr = [];
-           t = 0
+           vlArr = []; vrArr = []; dtArr = [];
            while(t < Tf) 
-               st = vt*t;
+               st = vt*t/ks;
                angle = ktheta*st;
                while (angle > pi)
                    angle = angle - 2*pi;  
@@ -109,16 +102,14 @@ classdef exercise3
                vl = vt - (0.0425) * omegat;
                vlArr = [vlArr, vl];
                vrArr = [vrArr, vr];
-%                T = toc(tstart);
-%                dtArr = [dtArr, (T/ks) - t];
-               dtArr = [dtArr, 0.001];
-%                t = T/ks;
-               t = t + 0.001;
+               T = toc(tstart);
+               dtArr = [dtArr, (T - t)];
+               t = T;
+               pause(0.1);
                fprintf("%d %d\n", t, Tf);
            end
            fprintf("%d \n", length(vlArr));
            exercise3.modelDiffSteerRobot(vlArr, vrArr, 0, Tf, dtArr); 
-           
        end
        
    end

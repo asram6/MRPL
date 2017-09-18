@@ -12,10 +12,13 @@ classdef exercise3
            for i = (1:length(vr))
                V = (vl(i)+vr(i))/2;
                omega = (vr(i) - vl(i))/0.085;
-               th = th + omega*dt/2;
+               th = th + omega*dt(i)/2;
                while (th > pi)
-                   th = th - pi
-                                  end
+                   th = th - 2*pi;
+               end
+               while (th < -pi)
+                   th = th + 2*pi;
+               end
                x = x + V*cos(th)*dt(i);
                y = y + V*sin(th)*dt(i);
                fprintf("in steer loop %d %d\n", x, y);
@@ -90,18 +93,27 @@ classdef exercise3
            vlArr = [];
            vrArr = [];
            dtArr = [];
+           t = 0
            while(t < Tf) 
                st = vt*t;
-               k = (kk/ks)*sin(ktheta*st);
+               angle = ktheta*st;
+               while (angle > pi)
+                   angle = angle - 2*pi;  
+               end
+               while (angle < -1 * pi)
+                   angle = angle + 2*pi;  
+               end
+               k = (kk/ks)*sin(angle);
                omegat = k*vt;
                vr = vt + (0.0425) * omegat;
                vl = vt - (0.0425) * omegat;
                vlArr = [vlArr, vl];
                vrArr = [vrArr, vr];
-               T = toc(tstart);
-               pause(0.1);
-               dtArr = [dtArr, T/ks - t];
-               t = T/ks;
+%                T = toc(tstart);
+%                dtArr = [dtArr, (T/ks) - t];
+               dtArr = [dtArr, 0.001];
+%                t = T/ks;
+               t = t + 0.001;
                fprintf("%d %d\n", t, Tf);
            end
            fprintf("%d \n", length(vlArr));
