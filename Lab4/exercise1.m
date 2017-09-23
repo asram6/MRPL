@@ -1,10 +1,10 @@
 goaldist = 0.1;
-robot =  raspbot('sim');
+robot =  raspbot('Rasbot-9');
 encoderStart = (robot.encoders.LatestMessage.Vector.X + robot.encoders.LatestMessage.Vector.Y) / 2;
 encoderCurr = (robot.encoders.LatestMessage.Vector.X + robot.encoders.LatestMessage.Vector.Y) / 2;
 e = (goaldist)-(encoderCurr-encoderStart);
 %nooooo get from encoder
-kp = 1; kd = 0; ki = 0;
+kp = 5; kd = 0.01; ki = 0;
 %upid = kp * e + kd * derivative(e) + kp * integral of e dt
 tstart = tic;
 tcurr = toc(tstart);
@@ -13,9 +13,9 @@ eintmax = .1;
 upid = 0;
 distErr = [];
 time = [];
+oldoldt = 0;
 while (1) 
     while ((tcurr < 6) && (abs(e) > .0001))
-        fprintf('%d %d  upid = %d\n', tcurr, e, upid);
         olde = e;
         oldt = tcurr;
         encoderCurr = (robot.encoders.LatestMessage.Vector.X + robot.encoders.LatestMessage.Vector.Y) / 2;
@@ -40,15 +40,23 @@ while (1)
             end
         end
         robot.sendVelocity(upid,upid);
+        pause(0.1);
         distErr = [distErr, e];
-        time = [time, tcurr];
-    end
-    if (goaldist = .1) 
+        time = [time, oldoldt + tcurr];
+        plot(time, distErr);
+    end    
+    if (goaldist == .1) 
         goaldist = 0;
     else
-        goaldist = .1
+        goaldist = .1;
     end
+    
+    oldoldt = oldoldt + tcurr;
+    tstart = tic;
+    tcurr = toc(tstart);
+    encoderCurr = (robot.encoders.LatestMessage.Vector.X + robot.encoders.LatestMessage.Vector.Y) / 2;
+    e = (goaldist)-(encoderCurr-encoderStart);
 end
-plot(distErr, time);
+
 
 
