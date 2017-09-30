@@ -10,7 +10,9 @@ classdef figure8ReferenceControl
         Tf
         ks
         kv
-        T %current time
+        T 
+        trajectory
+        totalTime
     end
     
     methods(Static = true)
@@ -28,33 +30,49 @@ classdef figure8ReferenceControl
          obj.tPause = tPause;
          obj.ks = Ks;
          obj.kv = Kv;
-         robot = raspbot('Raspbot-26');
-         pause(3);
-         robot.sendVelocity(0,0);
-         pause(3);
+         %totalTime = figure8ReferenceControl.getTrajectoryDuration(obj);
+         %tdelay = 0.11;
+        end
+        
+        function obj = oldFigure8ReferenceControl(Ks,Kv,tPause)
+         % Construct a figure 8 trajectory. It will not start until
+         % tPause has elapsed and it will stay at zero for tPause
+         % afterwards. Kv scales velocity up when > 1 and Ks scales
+         % the size of the curve itself up.
+         obj.v = 0.2;
+         obj.sf = 1;
+         obj.tf = obj.sf/obj.v;
+         obj.ktheta = 2*pi/obj.sf;
+         obj.kk = 15.1084;
+         obj.Tf = Ks/Kv*obj.tf;
+         obj.tPause = tPause;
+         obj.ks = Ks;
+         obj.kv = Kv;
+         %robot = raspbot('Raspbot-26');
+         %pause(3);
+         %robot.sendVelocity(0,0);
+         %pause(3);
          T = 0;
          obj.T = T;
          totalTime = figure8ReferenceControl.getTrajectoryDuration(obj);
+         obj.totalTime = totalTime;
          firstLoop = true;
+         tdelay = 0.11;
          while (T < totalTime)
              if (firstLoop)
                  tStart = tic;
                  T = toc(tStart)
                  firstLoop = false;
              end
-             t = (Kv/Ks)*T;
-         
+             t = (Kv/Ks)*(T-tdelay);
              [V w] = figure8ReferenceControl.computeControl(obj, t);
-         
              [vl vr] = robotModel.VwTovlvr(V, w);
-         
-             robot.sendVelocity(vl, vr);
-        
+             %robot.sendVelocity(vl, vr);
              pause(0.01);
              T = toc(tStart);
-             obj.T = T;
+             obj.T = [obj.T T];
          end
-         robot.shutdown();
+         %robot.shutdown();
         end
 
 
@@ -64,7 +82,7 @@ classdef figure8ReferenceControl
          % pauses specified in the constructor are implemented here
          % too.
          totalTime = figure8ReferenceControl.getTrajectoryDuration(obj);
-         if ((obj.T < obj.tPause) || (totalTime - obj.T < obj.tPause) || (obj.T > totalTime))
+         if ((timeNow < obj.tPause) || (totalTime - timeNow < obj.tPause) || (timeNow > totalTime))
             V = 0; w = 0;
          else 
              st = obj.v*timeNow;
