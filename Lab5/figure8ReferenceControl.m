@@ -35,10 +35,13 @@ classdef figure8ReferenceControl
          T = 0;
          obj.T = T;
          totalTime = figure8ReferenceControl.getTrajectoryDuration(obj);
-         tStart = tic;
-         T = toc(tStart);
+         firstLoop = true;
          while (T < totalTime)
-         
+             if (firstLoop)
+                 tStart = tic;
+                 T = toc(tStart)
+                 firstLoop = false;
+             end
              t = (Kv/Ks)*T;
          
              [V w] = figure8ReferenceControl.computeControl(obj, t);
