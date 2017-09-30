@@ -1,9 +1,11 @@
 goaldist = 1;
 robot =  raspbot('Raspbot-9');
+pause(1);
 encoderStart = (robot.encoders.LatestMessage.Vector.X + robot.encoders.LatestMessage.Vector.Y) / 2;
 %nooooo get from encoder
-kp = 4; kd = .01; ki = 0;
+kp = 3; kd = .01; ki = 0;
 %upid = kp * e + kd * derivative(e) + kp * integral of e dt
+
 tstart = tic;
 tcurr = toc(tstart);
 eint = 0;
@@ -17,18 +19,29 @@ sgn = 1;
 uref = .1;
 distActual = 0;
 sref = 0;
-tdelay = 0.095;
+tdelay = 0.11;
 sdelay = 0;
 graph2 = [];
-flag = 0;
+flag = 1; e = 0;
+preval = false;
+currval = false;
 while (tcurr < (tdelay + 1 + 4.333333))
+
+       
+       
     olde = e;
     oldt = tcurr;
+    tcurr = toc(tstart);
+    
+    uref = trapezoidalVelocityProfile(tcurr, 3 * 0.25, 0.25, goaldist, sgn);
+    udelay = trapezoidalVelocityProfile(tcurr - tdelay, 3 * 0.25, 0.25, goaldist, sgn);
+    sref = sref + uref * (tcurr-oldt);
+    sdelay = sdelay + udelay*(tcurr-oldt);
+    
     encoderCurr = (robot.encoders.LatestMessage.Vector.X + robot.encoders.LatestMessage.Vector.Y) / 2;
     e = (sdelay)-(encoderCurr-encoderStart);
     fprintf("e = %d\n", e);
     distActual = encoderCurr-encoderStart;
-    tcurr = toc(tstart);
     dedt = (e-olde)/(tcurr-oldt);
     eint = eint + (e * (tcurr-oldt));
     if (abs(eint) > eintmax)
@@ -50,14 +63,10 @@ while (tcurr < (tdelay + 1 + 4.333333))
     else
         upid = 0;
     end
-    uref = trapezoidalVelocityProfile(tcurr, 3 * 0.25, 0.25, goaldist, sgn);
-    udelay = trapezoidalVelocityProfile(tcurr - tdelay, 3 * 0.25, 0.25, goaldist, sgn);
-    sref = sref + uref * (tcurr-oldt);
-    sdelay = sdelay + udelay*(tcurr-oldt);
     
     u = upid + uref;
     robot.sendVelocity(u,u);
-    pause(0.1);
+    pause(0.001);
     distErr = [distErr, distActual];
     graphyThing = [graphyThing, sdelay];
     graph2 = [graph2, sdelay-distActual];
@@ -76,3 +85,10 @@ title("Error vs Time");
        ylabel('Error (m)');
 uref = 0;
 robot.sendVelocity(uref,uref);
+
+
+function encoderEventListener(handle,event)
+    global currval;
+    currval = ~currval;
+    encoderDataTimestamp = double(event.Header.Stamp.Sec);
+end
