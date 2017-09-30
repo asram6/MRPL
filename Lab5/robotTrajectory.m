@@ -1,0 +1,2 @@
+classdef robotTrajectory
+end
