@@ -30,8 +30,6 @@ classdef figure8ReferenceControl
          obj.tPause = tPause;
          obj.ks = Ks;
          obj.kv = Kv;
-         %totalTime = figure8ReferenceControl.getTrajectoryDuration(obj);
-         %tdelay = 0.11;
         end
         
         function obj = oldFigure8ReferenceControl(Ks,Kv,tPause)
@@ -60,14 +58,12 @@ classdef figure8ReferenceControl
          tdelay = 0.11;
          while (T < totalTime)
              if (firstLoop)
-                 tStart = tic;
-                 T = toc(tStart)
-                 firstLoop = false;
+                 %tStart = tic;
+                 T = 0;
              end
              t = (Kv/Ks)*(T-tdelay);
              [V w] = figure8ReferenceControl.computeControl(obj, t);
              [vl vr] = robotModel.VwTovlvr(V, w);
-             %robot.sendVelocity(vl, vr);
              pause(0.01);
              T = toc(tStart);
              obj.T = [obj.T T];

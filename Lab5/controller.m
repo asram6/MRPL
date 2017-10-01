@@ -7,15 +7,12 @@ classdef controller
     methods
         function obj = controller()
             obj.robot = raspbot('Raspbot-26');
+            pause(0.1);
         end
         
-        function sendVelocities(obj, vlarr, vrarr)
-            len = size(vlarr);
-            for i = 1:len(2)
-                vl = vlarr(i); vr = vrarr(i);
-                obj.robot.sendVelocity(vl, vr);
-                pause(0.1);
-            end
+        function sendVelocity(obj, vl, vr)
+            obj.robot.sendVelocity(vl, vr);
+            pause(0.01);
         end
         
         function doOneIteration(obj, error, robot)
@@ -37,7 +34,11 @@ classdef controller
             
         end
         
-       
+        function shutdown(obj)
+            obj.robot.shutdown;
+        end
+        
+        
     end
     
 end

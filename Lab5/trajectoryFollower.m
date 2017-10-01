@@ -2,7 +2,8 @@ classdef trajectoryFollower
     properties
         controllerObj,
         robotTrajObj,
-        robot
+        robot,
+        trajectoryObj
     end
     
     methods
@@ -11,23 +12,34 @@ classdef trajectoryFollower
             obj.robot = raspbot('Raspbot-26');
            % obj.feedForward(vArr, wArr);
             obj.robotTrajObj = robotTrajectory(figure8ReferenceControl(1,1,.01));
-            obj.feedBack();
+            obj.trajectoryObj = obj.robotTrajObj;
+            %obj.feedBack();
+
+            pause(.1);
         end
         
-        function feedForward(obj, vArr, wArr)
-            vlarr = [];
-            vrarr = [];
-            len = size(vArr);
-            for i = 1:len(2)
-                V = vArr(i);
-                w = wArr(i);
-                [vl1 vr1] = robotModel.VwTovlvr(V, w);
-                [vl vr] = robotModel.limitWheelVelocities([vl1 vr1]);
-                vlarr = [vlarr vl];
-                vrarr = [vrarr vr];    
+        function feedForward(obj)
+            trajectory = obj.trajectoryObj;
+            firstLoop = true;
+            tStart = 0;
+            tcurr = 0;
+            while (tcurr < 5)
+                if (firstLoop) 
+                    firstLoop = false;
+                    tStart = tic;
+                    tcurr = toc(tStart);
+                end
+                tcurr = toc(tStart);
+                V = robotTrajectory.getVelocityAtTime(trajectory, tcurr);
+                w = robotTrajectory.getOmegaAtTime(trajectory, tcurr);
+                [vl, vr]  = robotModel.VwTovlvr(V, w);
+                %fprintf('%d %d\n', vl,vr);
+                %[vl, vr] = robotModel.limitWheelVelocities([vl, vr]);
+                
+                obj.controllerObj.sendVelocity(vl, vr);
             end
             
-            obj.controllerObj.sendVelocities(vlarr, vrarr);
+            obj.controllerObj.shutdown();
         end
         
         function feedBack(obj)

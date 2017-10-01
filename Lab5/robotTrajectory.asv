@@ -50,6 +50,7 @@ classdef robotTrajectory < handle
         
         function pose  = getPoseAtTime(obj,t)
             pose = interp1(obj.timeArr, transpose(obj.poseArr), t);
+<<<<<<< HEAD
         end
         
         function velocity  = getVelocityAtTime(obj,t)
