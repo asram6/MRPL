@@ -4,6 +4,8 @@ classdef robotTrajectory < handle
         distanceArr
         poseArr
         refControl
+        velocityArr
+        omegaArr
     end
     methods(Static = true)
         function obj = robotTrajectory(referControl)
@@ -17,15 +19,15 @@ classdef robotTrajectory < handle
             si = 0;
             xarr = []; yarr = []; thetaArr = [0];
             dt = (tend - tstart)/numSamples;
-            poseArr = p; timeArr = []; distanceArr = [si]; velocityArr = []; omegaArr = [];
+            obj.poseArr = p; obj.timeArr = []; obj.distanceArr = [si]; obj.velocityArr = []; obj.omegaArr = [];
             for i = 1:(numSamples-1)
                 ti = (i-1) * dt;
-                timeArr = [timeArr ti];
+                obj.timeArr = [obj.timeArr ti];
                 [vi, wi] = figure8ReferenceControl.computeControl(obj.refControl, ti);
-                velocityArr = [velocityArr vi];
-                omegaArr = [omegaArr wi];
+                obj.velocityArr = [obj.velocityArr vi];
+                obj.omegaArr = [obj.omegaArr wi];
                 si = si + (vi * dt);
-                distanceArr = [distanceArr si];
+                obj.distanceArr = [obj.distanceArr si];
                 thnew = mod((p(3) + wi*dt),(2*pi));
                 thetaArr = [thetaArr thnew];
                 xnew = p(1) + vi*cos(thnew);
@@ -33,26 +35,33 @@ classdef robotTrajectory < handle
                 ynew = p(2) + vi*sin(thnew);
                 yarr = [yarr ynew];
                 p = [xnew; ynew; thnew];
-                poseArr = [poseArr p];
+                obj.poseArr = [obj.poseArr p];
             end
-           timeArr = [timeArr numSamples*dt];
-           [vn, wn] = figure8ReferenceControl.computeControl(obj.refControl, numSamples);
-           velocityArr = [velocityArr vn];
-           omegaArr = [omegaArr wn];
-           trajectoryFollower(velocityArr, omegaArr);
-           %plot(xarr, yarr);
+           obj.timeArr = [obj.timeArr numSamples*dt];
+           [vn, wn] = figure8ReferenceControl.computeControl(obj.refControl, numSamples*dt);
+           obj.velocityArr = [obj.velocityArr vn];
+           obj.omegaArr = [obj.omegaArr wn];
+           %trajectoryFollower(velocityArr, omegaArr);
+           plot(xarr, yarr);
         end
         
         function pose  = getPoseAtTime(obj,t)
-            interp1(obj.timeArr, transpose(obj.poseArr), t);
+            pose = interp1(obj.timeArr, transpose(obj.poseArr), t);
+        end
+        
+        function omega  = getOmegaAtTime(obj,t)
+            [times, index] = unique(obj.timeArr);
+            omega = interp1(times, obj.omegaArr(index), t);
         end
         
         function velocity  = getVelocityAtTime(obj,t)
-            interp1(obj.timeArr, transpose(obj.velocityArr), t);
+            %fprintf('%f', t);
+            [times, index] = unique(obj.timeArr);
+            velocity = interp1(times, obj.velocityArr(index), t);
         end
         
         function distance  = getDistanceAtTime(obj,t)
-            interp1(obj.timeArr, transpose(obj.distanceArr), t);
+            distance = interp1(obj.timeArr, transpose(obj.distanceArr), t);
         end
     end
 end
