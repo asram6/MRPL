@@ -6,7 +6,7 @@ classdef controller
     
     methods
         function obj = controller()
-            obj.robot = raspbot('Raspbot-26');
+            obj.robot = raspbot('sim');
         end
         
         function sendVelocities(obj, vlarr, vrarr)
@@ -18,20 +18,16 @@ classdef controller
             end
         end
         
-        function doOneIteration(obj, error, robot)
+        function doOneIteration(obj, error, olderror)
             errorx = error(1);
             errory = error(2);
             tao = 150;
-            V = 0.05;
-            kx = 1/tao;
-            ky = 2/((tao^2)*V);
+            kx = 1/15;
+            ky
             uv = kx*errorx;
             uw = ky*errory;
             [vl, vr] = robotModel.VwTovlvr(uv, uw);
-            fprintf("vl %d, vr %d\n", vl, vr);
-            if ((abs(vl) < 0.1) && (abs(vr) < 0.1))
-                robot.sendVelocity(vl, vr);
-            end
+            obj.robot.sendVelocity(vl, vr);
             pause(0.01);
             
             

@@ -1,0 +1,80 @@
+classdef trajectoryFollower
+    properties
+        controllerObj,
+        poseObj,
+        robotTrajObj
+    end
+    
+    methods
+        function obj = trajectoryFollower(vArr, wArr)
+            obj.controllerObj = controller();
+            obj.poseObj = pose(0,0,0);
+            obj.feedForward(vArr, wArr);
+            obj.robotTrajObj = RobotTrajectory(figure8ReferenceControl(1,1,.01));
+        end
+        
+        function feedForward(obj, vArr, wArr)
+            vlarr = [];
+            vrarr = [];
+            len = size(vArr);
+            for i = 1:len(2)
+                V = vArr(i);
+                w = wArr(i);
+                [vl1 vr1] = robotModel.VwTovlvr(V, w);
+                [vl vr] = robotModel.limitWheelVelocities([vl1 vr1]);
+                vlarr = [vlarr vl];
+                vrarr = [vrarr vr];    
+            end
+            
+            obj.controllerObj.sendVelocities(vlarr, vrarr);
+        end
+        
+        function feedBack(obj)
+            preval = false; currval = false;
+            tStart = tic;
+            t = toc(tStart);
+            x = robot.encoders.LatestMessage.Vector.X;
+            y = robot.encoders.LatestMessage.Vector.Y;
+            th = 0;
+            while (t < 10)
+                while (preval == currval)
+                   pause(0.001);
+                end
+            preval = currval;
+            [x; y; th] = obj.updatePose(x, y, th, t);
+            
+            refPose = obj.robotTrajObj.getPoseAtTime(t);
+            error = refPose - [x y, th];
+            
+            
+        end
+        
+        function [x; y; th] = function updatePose(obj, prevX, prevY, th, t)
+            encoderX = robot.encoders.LatestMessage.Vector.X;
+            encoderY = robot.encoders.LatestMessage.Vector.Y;
+            diffX = encoderX - prevX;
+            diffY = encoderY - prevY;
+            prevX = encoderX;
+            prevY = encoderY;
+            T = toc(tStart);
+            dt = (T - t);
+            vlactual = diffX/dt;
+            vractual = diffY/dt;
+            Vactual = (vlactual+vractual)/2;
+            Wactual = (vractual - vlactual)/0.088;
+            th = th + Wactual*dt;
+            x = x + Vactual*cos(th)*dt;
+            y = y + Vactual*sin(th)*dt;
+            
+            
+        end
+        
+        function encoderEventListener(handle, event)
+            global currval;
+            currval = ~currval;
+            
+        end
+        
+    end
+    
+end
