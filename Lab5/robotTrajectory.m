@@ -2,9 +2,7 @@ classdef robotTrajectory < handle
     properties
         timeArr
         distanceArr
-        velocityArr
         poseArr
-        omegaArr
         refControl
     end
     methods(Static = true)

@@ -12,7 +12,8 @@ classdef trajectoryFollower
         function feedForward(obj, vArr, wArr)
             vlarr = [];
             vrarr = [];
-            for i = 1:size(vArr)
+            len = size(vArr);
+            for i = 1:len(2)
                 V = vArr(i);
                 w = wArr(i);
                 [vl vr] = robotModel.VwTovlvr(V, w);

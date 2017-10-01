@@ -10,9 +10,12 @@ classdef controller
         end
         
         function sendVelocities(obj, vlarr, vrarr)
-            for i = 1:size(vlarr)
+            len = size(vlarr);
+            for i = 1:len(2)
                 vl = vlarr(i); vr = vrarr(i);
                 obj.robot.sendVelocity(vl, vr);
+                fprintf("vl %d, vr %d\n", vl, vr);
+                pause(0.01);
             end
         end
         
