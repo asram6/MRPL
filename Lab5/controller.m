@@ -14,8 +14,7 @@ classdef controller
             for i = 1:len(2)
                 vl = vlarr(i); vr = vrarr(i);
                 obj.robot.sendVelocity(vl, vr);
-                fprintf("vl %d, vr %d\n", vl, vr);
-                pause(0.01);
+                pause(0.1);
             end
         end
         

@@ -16,7 +16,8 @@ classdef trajectoryFollower
             for i = 1:len(2)
                 V = vArr(i);
                 w = wArr(i);
-                [vl vr] = robotModel.VwTovlvr(V, w);
+                [vl1 vr1] = robotModel.VwTovlvr(V, w);
+                [vl vr] = robotModel.limitWheelVelocities([vl1 vr1]);
                 vlarr = [vlarr vl];
                 vrarr = [vrarr vr];    
             end
