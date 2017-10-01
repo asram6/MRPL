@@ -23,7 +23,7 @@ classdef trajectoryFollower
             firstLoop = true;
             tStart = 0;
             tcurr = 0;
-            while (tcurr < 5)
+            while (tcurr < 6)
                 if (firstLoop) 
                     firstLoop = false;
                     tStart = tic;
@@ -36,14 +36,16 @@ classdef trajectoryFollower
                 %fprintf('%d %d\n', vl,vr);
                 %[vl, vr] = robotModel.limitWheelVelocities([vl, vr]);
                 
-                obj.controllerObj.sendVelocity(vl, vr);
+                obj.controllerObj.sendVelocity(vl, vr, obj.robot);
             end
             
-            obj.controllerObj.shutdown();
+            obj.controllerObj.shutdown(robot);
         end
         
         function feedBack(obj)
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
+            global currval;
+            global preval;
             preval = false; currval = false;
             tStart = tic;
             t = toc(tStart);
@@ -90,11 +92,13 @@ classdef trajectoryFollower
             y = prevy + Vactual*sin(th)*dt;
         end
         
-        function encoderEventListener(handle, event)
+        
+        
+    end
+end
+
+function encoderEventListener(handle, event)
             fprintf("in event listener\n");
             global currval;
             currval = ~currval;  
-        end
-        
-    end
 end

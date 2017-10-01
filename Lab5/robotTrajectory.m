@@ -44,13 +44,6 @@ classdef robotTrajectory < handle
            %trajectoryFollower(velocityArr, omegaArr);
            %plot(xarr, yarr);
         end
-    end
-    
-    methods
-        
-        function pose  = getPoseAtTime(obj,t)
-            pose = interp1(obj.timeArr, transpose(obj.poseArr), t);
-        end
         
         function velocity  = getVelocityAtTime(obj,t)
             velocity = interp1(obj.timeArr, transpose(obj.velocityArr), t);
@@ -60,6 +53,15 @@ classdef robotTrajectory < handle
             [times, index] = unique(obj.timeArr);
             omega = interp1(times, obj.omegaArr(index), t);
         end
+    end
+    
+    methods
+        
+        function pose  = getPoseAtTime(obj,t)
+            pose = interp1(obj.timeArr, transpose(obj.poseArr), t);
+        end
+        
+        
         
         
         function distance  = getDistanceAtTime(obj,t)
