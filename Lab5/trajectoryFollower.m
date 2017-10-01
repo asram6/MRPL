@@ -13,7 +13,7 @@ classdef trajectoryFollower
            % obj.feedForward(vArr, wArr);
             obj.robotTrajObj = robotTrajectory(figure8ReferenceControl(1,1,.01));
             obj.trajectoryObj = obj.robotTrajObj;
-            %obj.feedBack();
+            obj.feedBack();
 
             pause(.1);
         end
@@ -39,7 +39,7 @@ classdef trajectoryFollower
                 obj.controllerObj.sendVelocity(vl, vr, obj.robot);
             end
             
-            obj.controllerObj.shutdown(robot);
+            obj.controllerObj.shutdown(obj.robot);
         end
         
         function feedBack(obj)
@@ -61,7 +61,8 @@ classdef trajectoryFollower
                 fprintf("got out \n");
                 preval = currval;
                 T = toc(tStart);
-                [x, y, th] = obj.updatePose(x, y, th, t, T);
+                [newx, newy, newth] = obj.updatePose(x, y, th, t, T);
+                x = newx; y = newy; th = newth;
                 refPose = obj.robotTrajObj.getPoseAtTime(t);
                 error = refPose - [x; y; th];
                 pose2 = [x;y];
@@ -78,6 +79,7 @@ classdef trajectoryFollower
         end
         
         function [x, y, th] = updatePose(obj, prevx, prevy, prevth, t, T)
+            fprintf("%d %d %d %d %d \n", prevx, prevy, prevth, t, T);
             encoderX = obj.robot.encoders.LatestMessage.Vector.X;
             encoderY = obj.robot.encoders.LatestMessage.Vector.Y;
             diffX = encoderX - prevx;
@@ -91,14 +93,11 @@ classdef trajectoryFollower
             x = prevx + Vactual*cos(th)*dt;
             y = prevy + Vactual*sin(th)*dt;
         end
-        
-        
-        
+
     end
 end
 
 function encoderEventListener(handle, event)
-            fprintf("in event listener\n");
-            global currval;
-            currval = ~currval;  
+    global currval;
+    currval = ~currval;  
 end
