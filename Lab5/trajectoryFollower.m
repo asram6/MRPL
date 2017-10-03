@@ -13,7 +13,7 @@ classdef trajectoryFollower
            % obj.feedForward(vArr, wArr);
             obj.robotTrajObj = robotTrajectory(figure8ReferenceControl(1,1,.01));
             obj.trajectoryObj = obj.robotTrajObj;
-            obj.feedBack();
+            obj.both();
 
             pause(.1);
         end
@@ -73,8 +73,62 @@ classdef trajectoryFollower
                 mat(2,2) = cos(th);
                 matinv = inv(mat);
                 errorConverted = matinv*pose2;
-                obj.controllerObj.doOneIteration(errorConverted, obj.robot);
+                obj.controllerObj.doOneIteration(errorConverted, obj.robot, V, w);
                 t = toc(tStart);
+            end
+        end
+        
+        function both(obj)
+            obj.robot.encoders.NewMessageFcn = @encoderEventListener;
+            global currval;
+            global preval;
+            preval = false; currval = false;
+            tStart = tic;
+            t = toc(tStart);
+            x = obj.robot.encoders.LatestMessage.Vector.X;
+            y = obj.robot.encoders.LatestMessage.Vector.Y;
+            flag = true;
+            th = 0;
+            
+            trajectory = obj.trajectoryObj;
+            firstLoop = true;
+            tStart = 0;
+            tcurr = 0;
+            while (tcurr < 6)
+                if (firstLoop) 
+                    firstLoop = false;
+                    tStart = tic;
+                    tcurr = toc(tStart);
+                end
+                oldt = tcurr;
+                tcurr = toc(tStart);
+                V = robotTrajectory.getVelocityAtTime(trajectory, tcurr);
+                w = robotTrajectory.getOmegaAtTime(trajectory, tcurr);
+                %[vl, vr]  = robotModel.VwTovlvr(V, w);
+                errorConverted = [0;0];
+                if (flag)
+                    fprintf("before loop\n");
+                    while (preval == currval)
+                       pause(0.001);
+                    end
+                    fprintf("get out\n");
+                    preval = currval;
+                    [newx, newy, newth] = obj.updatePose(x, y, th, oldt, tcurr);
+                    x = newx; y = newy; th = newth;
+                    refPose = obj.robotTrajObj.getPoseAtTime(tcurr);
+                    error = refPose - [x; y; th];
+                    pose2 = [error(1);error(2)];
+                    %theta = error(3);
+                    mat = zeros(2,2);
+                    mat(1,1) = cos(th);
+                    mat(1,2) = -sin(th);
+                    mat(2,1) = sin(th);
+                    mat(2,2) = cos(th);
+                    matinv = inv(mat);
+                    errorConverted = matinv*pose2;
+                end
+                obj.controllerObj.doOneIteration(errorConverted, obj.robot, V, w, flag);
+                %t = toc(tStart);
             end
         end
         
@@ -96,6 +150,7 @@ classdef trajectoryFollower
 
     end
 end
+
 
 function encoderEventListener(handle, event)
     global currval;
