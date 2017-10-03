@@ -15,7 +15,7 @@ classdef controller
             pause(0.01);
         end
         
-        function doOneIteration(obj, error, robot, V, w, flag)
+        function doOneIteration(obj, error, robot, V, w, flag, eth)
             if (~flag)
                 [vl, vr]  = robotModel.VwTovlvr(V, w);
                 if ((isnan(vl)) || (isnan(vr)))
@@ -28,14 +28,14 @@ classdef controller
             else
                 errorx = error(1);
                 errory = error(2);
-                tao = 10;
-                V = 0.05;
+                tao = 100;
                 kx = 1/tao;
+                kth = kx;
                 uv = kx*errorx;
-                ky = 2/((tao^2)*uv);
-                uw = ky*errory;
-                uv = uv + V;
-                uw = uw + w;
+                ky = 2/((tao^2)*V); %add V
+                uw = ky*errory + kth*eth;
+                uv = uv;% + V;
+                uw = uw;% + w;
                 if (abs(uw) > pi/4)
                     if (uw > 0)
                         uw = pi/4;
@@ -45,6 +45,7 @@ classdef controller
                 end
                 [vl1, vr1] = robotModel.VwTovlvr(uv, uw);
                 [vl, vr] = robotModel.limitWheelVelocities([vl1, vr1]);
+                fprintf("uv=%d uw=%d  vl %d vr %d, V %d, w %d\n", uv,uw, vl, vr);
                 robot.sendVelocity(vl, vr);
                 pause(0.01);
             end

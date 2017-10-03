@@ -6,34 +6,59 @@ classdef controller
     
     methods
         function obj = controller()
-            obj.robot = raspbot('sim');
+            %obj.robot = raspbot('Raspbot-26');
+            pause(0.1);
         end
         
-        function sendVelocities(obj, vlarr, vrarr)
-            len = size(vlarr);
-            for i = 1:len(2)
-                vl = vlarr(i); vr = vrarr(i);
-                obj.robot.sendVelocity(vl, vr);
-                pause(0.1);
-            end
-        end
-        
-        function doOneIteration(obj, error, olderror)
-            errorx = error(1);
-            errory = error(2);
-            tao = 150;
-            kx = 1/15;
-            ky
-            uv = kx*errorx;
-            uw = ky*errory;
-            [vl, vr] = robotModel.VwTovlvr(uv, uw);
-            obj.robot.sendVelocity(vl, vr);
+        function sendVelocity(obj, vl, vr, robot)
+            robot.sendVelocity(vl, vr);
             pause(0.01);
+        end
+        
+        function doOneIteration(obj, error, robot, V, w, flag)
+            if (~flag)
+                [vl, vr]  = robotModel.VwTovlvr(V, w);
+                if ((isnan(vl)) || (isnan(vr)))
+                    robot.sendVelocity(0, 0);
+                else
+                    robot.sendVelocity(vl, vr);
+                end
+                pause(0.01);
+            
+            else
+                errorx = error(1);
+                errory = error(2);
+                tao = 100;
+                kx = 1/tao;
+                uv = kx*errorx;
+                ky = 2/((tao^2)*uv); %add V
+                uw = ky*errory;
+                uv = uv;% + V;
+                uw = uw;% + w;
+                if (abs(uw) > pi/4)
+                    if (uw > 0)
+                        uw = pi/4;
+                    else
+                        uw = -pi/4;
+                    end
+                end
+                [vl1, vr1] = robotModel.VwTovlvr(uv, uw);
+                [vl, vr] = robotModel.limitWheelVelocities([vl1, vr1]);
+                fprintf("uv=%d uw=%d  vl %d vr %d\n", uv,uw, vl, vr);
+                robot.sendVelocity(vl, vr);
+                pause(0.01);
+            end
             
             
         end
         
-       
+        function shutdown(obj, robot)
+            robot.sendVelocity(0,0);
+            pause(1);
+            robot.shutdown();
+        end
+        
+        
     end
     
 end

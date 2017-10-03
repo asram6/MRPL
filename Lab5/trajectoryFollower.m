@@ -107,18 +107,17 @@ classdef trajectoryFollower
                 %[vl, vr]  = robotModel.VwTovlvr(V, w);
                 errorConverted = [0;0];
                 if (flag)
-                    fprintf("before loop\n");
                     while (preval == currval)
                        pause(0.001);
                     end
-                    fprintf("get out\n");
                     preval = currval;
                     [newx, newy, newth] = obj.updatePose(x, y, th, oldt, tcurr);
                     x = newx; y = newy; th = newth;
                     refPose = obj.robotTrajObj.getPoseAtTime(tcurr);
                     error = refPose - [x; y; th];
                     pose2 = [error(1);error(2)];
-                    %theta = error(3);
+                    thetaE = error(3);
+                    eth = atan2(sin(thetaE), cos(thetaE));
                     mat = zeros(2,2);
                     mat(1,1) = cos(th);
                     mat(1,2) = -sin(th);
@@ -127,13 +126,13 @@ classdef trajectoryFollower
                     matinv = inv(mat);
                     errorConverted = matinv*pose2;
                 end
-                obj.controllerObj.doOneIteration(errorConverted, obj.robot, V, w, flag);
+                fprintf("x=%d y=%d  \n", errorConverted(1), errorConverted(2));
+                obj.controllerObj.doOneIteration(errorConverted, obj.robot, V, w, flag, eth);
                 %t = toc(tStart);
             end
         end
         
         function [x, y, th] = updatePose(obj, prevx, prevy, prevth, t, T)
-            fprintf("%d %d %d %d %d \n", prevx, prevy, prevth, t, T);
             encoderX = obj.robot.encoders.LatestMessage.Vector.X;
             encoderY = obj.robot.encoders.LatestMessage.Vector.Y;
             diffX = encoderX - prevx;
