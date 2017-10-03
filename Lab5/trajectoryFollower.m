@@ -115,18 +115,17 @@ classdef trajectoryFollower
                     x = newx; y = newy; th = newth;
                     refPose = obj.robotTrajObj.getPoseAtTime(tcurr);
                     error = refPose - [x; y; th];
-                    pose2 = [error(1);error(2)];
+                    %pose2 = [error(1);error(2)];
                     thetaE = error(3);
                     eth = atan2(sin(thetaE), cos(thetaE));
-                    mat = zeros(2,2);
-                    mat(1,1) = cos(th);
-                    mat(1,2) = -sin(th);
-                    mat(2,1) = sin(th);
-                    mat(2,2) = cos(th);
-                    matinv = inv(mat);
-                    errorConverted = matinv*pose2;
+                    mat = zeros(3,3);
+                    mat(1,1) =  cos(th); mat(1,2) = -sin(th); mat(1,3) = x;
+                    mat(2,1) =  sin(th); mat(2,2) =  cos(th); mat(2,3) = y;
+                    mat(3,1) =  0.0    ; mat(3,2) =  0.0    ; mat(3,3) = 1;
+                    matinv = (mat)^-1;
+                    errorConverted = matinv*error;
                 end
-                fprintf("x=%d y=%d  \n", errorConverted(1), errorConverted(2));
+                fprintf("errorx=%d errory=%d   x=%d   y = %d    th = %d \n", errorConverted(1), errorConverted(2), x, y, th);
                 obj.controllerObj.doOneIteration(errorConverted, obj.robot, V, w, flag, eth);
                 %t = toc(tStart);
             end
