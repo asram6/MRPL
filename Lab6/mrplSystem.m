@@ -21,13 +21,13 @@ classdef mrplSystem
         end
             
         function executeTrajectoryToRelativePose(obj, x, y, th, sgn, iteration)
-            fprintf("in executeTrajtoRelativePose 1 \n");
+            %fprintf("in executeTrajtoRelativePose 1 \n");
             obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(x, y, th, sgn);
-            fprintf("in executeTrajtoRelativePose 2 \n");
+            %fprintf("in executeTrajtoRelativePose 2 \n");
             obj.trajectoryObj.planVelocities(0.2);
-            fprintf("in executeTrajtoRelativePose 3 \n");
+            %fprintf("in executeTrajtoRelativePose 3 \n");
             obj.executeTrajectory(iteration);
-            fprintf("in executeTrajtoRelativePose 4 \n");
+            %fprintf("in executeTrajtoRelativePose 4 \n");
         end
         
         
@@ -55,22 +55,34 @@ classdef mrplSystem
                 preval = false; currval = false;
                 trajectory = obj.trajectoryObj;
                 firstLoop = true;
-                tStart = tic;
+                %tStart = tic;
                 tcurr = 0;
                 x = obj.robot.encoders.LatestMessage.Vector.X;
                 y = obj.robot.encoders.LatestMessage.Vector.Y;
                 s = 0;
                 theta = 0; sensedX = 0; sensedY = 0;
                 referenceXArr = []; referenceYArr = []; sensedXArr = []; sensedYArr = [];
+                finalPose = trajectory.getFinalPose();
                 figure(iteration);
                 parms = trajectory.getParms();
                 fprintf("in executeTrajectory before loop \n");
-                while (s <= parms(3))
+                %lastI = size(trajectory.timeArray);
+                lastT = trajectory.getTrajectoryDuration();%timeArray(lastI(2));
+                tao = .3; %0.7;
+                prevV = 0;
+                error = 0;
+                errory = 0;
+                errorth = 0;
+                while (s <= parms(3)) % || (error) > 0.02 || (errorth) > 0.02)
+                    if (firstLoop) 
+                        firstLoop = false;
+                        tStart = tic;
+                        tcurr = 0;
+                    end
                     while (preval == currval)
                        pause(0.001);
                     end
                     preval = currval;
-                    %fprintf("out of loop\n");
                     newx = obj.robot.encoders.LatestMessage.Vector.X;
                     newy = obj.robot.encoders.LatestMessage.Vector.Y;
                     prevT = tcurr;
@@ -85,14 +97,35 @@ classdef mrplSystem
                     sensedY = sensedY + vactual*sin(theta)*dt;
                     ds = ((newx - x)+(newy-y))/2;
                     s = s + ds;
-                    t = trajectory.getTimeAtDist(s) + 0.01;
+                    %t = trajectory.getTimeAtDist(s) + 0.005;
                     %fprintf("got time at dist   t = %d\n", t);
                     x = newx; y = newy;
                     sensedXArr = [sensedXArr sensedX];
                     sensedYArr = [sensedYArr sensedY];
-                    V = trajectory.getVAtTime(t);
-                    w = trajectory.getwAtTime(t);
-                    referencePose = trajectory.getPoseAtTime(t);
+                    if (tcurr > lastT)
+                        referencePose = finalPose;
+                    else
+                        referencePose = trajectory.getPoseAtTime(tcurr);
+                    end
+                    errorx = referencePose(1) - sensedX; errory = referencePose(2)-sensedY;
+                    errorth = referencePose(3) - theta;
+                    error = sqrt(errorx^2 + errory^2);
+                    mat = zeros(2,2);%3,3);
+                    mat(1,1) = cos(theta); mat(1,2) = -sin(theta); %mat(1,3) = x;
+                    mat(2,1) = sin(theta); mat(2,2) = cos(theta); %mat(2,3) = y;
+                    %mat(3,1) = 0.0; mat(3,2) = 0.0; mat(3, 3) = 1.0;
+                    kth = 1/tao;
+                    rpr = (mat^-1)*[errorx; errory];
+                    thekx = 1/tao;
+                    prevV = trajectory.getVAtTime(tcurr);
+                    theky = 2/(prevV*tao^2);
+                    if (prevV < 0.05)
+                        theky = 0;
+                    end
+                    up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
+                    prevW = trajectory.getwAtTime(tcurr);
+                    V = prevV + up(1);
+                    w = prevW + up(2);
                     referenceXArr = [referenceXArr referencePose(1)];
                     referenceYArr = [referenceYArr referencePose(2)];
                     %fprintf('V = %d w = %d\n', V, w);
@@ -101,14 +134,16 @@ classdef mrplSystem
                     [vl, vr] = robotModel.limitWheelVelocities([vl, vr]);
                     
                     obj.robot.sendVelocity(vl, vr);
-                    pause(0.05);
+                    pause(0.01);
+                    
                 end
-                fprintf("after loop \n");
                 figure(iteration);
-                fprintf("after iteration thing \n");
                 plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
+                title("Ref");
+                xlabel('Time (seconds)');
+                ylabel('Error (m)');
+                fprintf("error %d \n", sqrt((sensedX-referencePose(1))^2 + (sensedY-referencePose(2))^2));
                 legend("reference", "sensed");
-                fprintf("iteration %d \n", iteration);
                 obj.robot.sendVelocity(0,0);
         end
     end
