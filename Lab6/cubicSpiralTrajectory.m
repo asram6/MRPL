@@ -80,6 +80,7 @@ classdef cubicSpiralTrajectory < handle
             % X at scale = 1
             numA = 40000.0/scale;
             numB = 25000.0/scale;
+            sf = 1;
             for a = -aMax:aMax/numA:aMax
                 for b = -bMax:bMax/numB:bMax
                     ds = sMax/(clothSamples-1); 
@@ -89,9 +90,18 @@ classdef cubicSpiralTrajectory < handle
                     % Compute the curve. Break out of this loop, and then 
                     % immediately continue to next iteration of the for b loop 
                     % if tmax is exceeded in absolute value at any time.
+                        s = (i-1)*ds; 
+                        kappa = s*(a + b*s)*(s - sf);
+                        t = t + (kappa * ds);
+                        if (abs(t) > tMax)
+                            broke = true;
+                            continue;
+                        end
+                        x = x + (cos(t) * ds); 
+                        y = y + (sin(t) * ds);
+                        r = r + (kappa^2)*ds; 
                     end
                     if(broke == true); continue; end;
-
                     q = atan2(y,x);
                     %if(~aTab.isInBounds(q,t)); continue; end;
                     % This is faster
@@ -159,7 +169,8 @@ classdef cubicSpiralTrajectory < handle
             persistent a1T a2T b1T b2T r1T r2T;
                     
             if(isempty(inited))
-                load('cubicSpirals2mm_015rads','a1Tab','a2Tab','b1Tab','b2Tab','r1Tab','r2Tab');
+                %load('cubicSpirals2mm_015rads','a1Tab','a2Tab','b1Tab','b2Tab','r1Tab','r2Tab');
+                load('cubicSpirals','a1Tab','a2Tab','b1Tab','b2Tab','r1Tab','r2Tab');
                 inited = true;
                 a1T = a1Tab;a2T = a2Tab;b1T = b1Tab;b2T = b2Tab;r1T = r1Tab;r2T = r2Tab;
             end
@@ -205,7 +216,7 @@ classdef cubicSpiralTrajectory < handle
 
             % Plot the corresponding unit
             su = 1.0;
-            clothu = cubicSpiral([au bu su],201);
+            clothu = cubicSpiralTrajectory([au bu su],201);
 
             %hold on;
 
@@ -224,7 +235,7 @@ classdef cubicSpiralTrajectory < handle
                 as = -as;  
                 ss = -ss;
             end
-            curve = cubicSpiral([as bs ss],201);
+            curve = cubicSpiralTrajectory([as bs ss],201);
         end
             
     end
@@ -433,6 +444,14 @@ classdef cubicSpiralTrajectory < handle
                 K = 0.0;
             else
                 K  = interp1(obj.distArray,obj.curvArray,s,'pchip','extrap');  
+            end
+        end
+        
+        function t  = getTimeAtDist(obj,s)
+            if( s < obj.distArray(1))
+                t = 0.0;
+            else
+                t  = interp1(obj.distArray,obj.timeArray,s,'pchip','extrap');  
             end
         end
             
