@@ -139,9 +139,9 @@ classdef mrplSystem
                 end
                 figure(iteration);
                 plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
-                title("Ref");
-                xlabel('Time (seconds)');
-                ylabel('Error (m)');
+                title("Reference Trajectory versus the Sensed Trajectory");
+                xlabel('Position x (m)');
+                ylabel('Position y (m)');
                 fprintf("error %d \n", sqrt((sensedX-referencePose(1))^2 + (sensedY-referencePose(2))^2));
                 legend("reference", "sensed");
                 obj.robot.sendVelocity(0,0);
