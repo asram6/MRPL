@@ -68,12 +68,13 @@ classdef mrplSystem
                 fprintf("in executeTrajectory before loop \n");
                 %lastI = size(trajectory.timeArray);
                 lastT = trajectory.getTrajectoryDuration();%timeArray(lastI(2));
-                tao = .3; %0.7;
+                tao = .27; %0.7;
                 prevV = 0;
                 error = 0;
                 errory = 0;
                 errorth = 0;
-                while (s <= parms(3)) % || (error) > 0.02 || (errorth) > 0.02)
+                tDelay = 0.11;
+                while (s <= parms(3)) % || (errorth) > 0.02)
                     if (firstLoop) 
                         firstLoop = false;
                         tStart = tic;
@@ -102,10 +103,10 @@ classdef mrplSystem
                     x = newx; y = newy;
                     sensedXArr = [sensedXArr sensedX];
                     sensedYArr = [sensedYArr sensedY];
-                    if (tcurr > lastT)
+                    if (tcurr-tDelay > lastT)
                         referencePose = finalPose;
                     else
-                        referencePose = trajectory.getPoseAtTime(tcurr);
+                        referencePose = trajectory.getPoseAtTime(tcurr-tDelay);
                     end
                     errorx = referencePose(1) - sensedX; errory = referencePose(2)-sensedY;
                     errorth = referencePose(3) - theta;
@@ -114,16 +115,16 @@ classdef mrplSystem
                     mat(1,1) = cos(theta); mat(1,2) = -sin(theta); %mat(1,3) = x;
                     mat(2,1) = sin(theta); mat(2,2) = cos(theta); %mat(2,3) = y;
                     %mat(3,1) = 0.0; mat(3,2) = 0.0; mat(3, 3) = 1.0;
-                    kth = 1/tao;
+                    kth = 1/0.3;%tao;
                     rpr = (mat^-1)*[errorx; errory];
                     thekx = 1/tao;
-                    prevV = trajectory.getVAtTime(tcurr);
+                    prevV = trajectory.getVAtTime(tcurr-tDelay);
                     theky = 2/(prevV*tao^2);
                     if (prevV < 0.05)
                         theky = 0;
                     end
                     up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
-                    prevW = trajectory.getwAtTime(tcurr);
+                    prevW = trajectory.getwAtTime(tcurr-tDelay);
                     V = prevV + up(1);
                     w = prevW + up(2);
                     referenceXArr = [referenceXArr referencePose(1)];
@@ -137,6 +138,7 @@ classdef mrplSystem
                     pause(0.01);
                     
                 end
+                obj.robot.sendVelocity(0,0);
                 figure(iteration);
                 plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
                 title("Reference Trajectory versus the Sensed Trajectory");
@@ -144,7 +146,6 @@ classdef mrplSystem
                 ylabel('Position y (m)');
                 fprintf("error %d \n", sqrt((sensedX-referencePose(1))^2 + (sensedY-referencePose(2))^2));
                 legend("reference", "sensed");
-                obj.robot.sendVelocity(0,0);
         end
     end
         
