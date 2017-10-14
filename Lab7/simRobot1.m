@@ -1,4 +1,4 @@
-classdef simRobot1
+classdef simRobot1 < handle
     
     properties
         
@@ -11,10 +11,14 @@ classdef simRobot1
     methods
         
         function obj = simRobot1(encoderX, encoderY)
-            %obj.prevEncoderX = encoderX;
-            %obj.prevEncoderY = encoderY;
+            obj.prevEncoderX = encoderX;
+            obj.prevEncoderY = encoderY;
             obj.x = 0; obj.y = 0; obj.theta = 0;
             obj.tPrev = 0; obj.vl = 0; obj.vr;
+        end
+        
+        function x = getX(obj)
+            x = obj.x;
         end
         
         function integrate(obj, encoderX, encoderY, tCurr)
@@ -27,7 +31,10 @@ classdef simRobot1
             obj.x = obj.x + vactual*cos(obj.theta)*dt;
             obj.y = obj.y + vactual*sin(obj.theta)*dt;
             obj.tPrev = tCurr;
-            obj.prevEncoderX = encoderX; obj.prevEncoderY = encoderY;
+            obj.prevEncoderY = encoderY;
+            obj.prevEncoderX = encoderX; 
+            
+            %fprintf("encoderX %d, encoderY %d, dt %d, vactual %d, omegaActual %d, theta %d, x %d, y %d\n", encoderX, encoderY, dt, vactual, omegaActual, obj.theta, obj.x, obj.y);
             
         end
         
