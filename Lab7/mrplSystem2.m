@@ -1,4 +1,4 @@
-classdef mrplSystem
+classdef mrplSystem2
     
     properties
             controllerObj,

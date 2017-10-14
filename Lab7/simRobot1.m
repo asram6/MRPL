@@ -26,8 +26,16 @@ classdef simRobot1 < handle
             obj.vl = (encoderX - obj.prevEncoderX)/dt; 
             obj.vr = (encoderY - obj.prevEncoderY)/dt;
             vactual = (obj.vl + obj.vr) /2;
-            omegaActual = (obj.vr - obj.vl) / 0.088;
+            omegaActual = (obj.vr - obj.vl) / 0.087; %%!!!!!!!!!!<-------
             obj.theta = obj.theta + omegaActual * dt;
+            %fprintf("before obj.theta = %d\n", obj.theta);
+            while (obj.theta >= pi)
+                obj.theta = obj.theta-2*pi;
+            end
+            while (obj.theta < -pi)
+                obj.theta = obj.theta+2*pi;
+            end
+            %fprintf("after obj.theta = %d\n", obj.theta);
             obj.x = obj.x + vactual*cos(obj.theta)*dt;
             obj.y = obj.y + vactual*sin(obj.theta)*dt;
             obj.tPrev = tCurr;

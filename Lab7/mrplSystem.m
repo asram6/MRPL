@@ -4,7 +4,10 @@ classdef mrplSystem
             controllerObj,
             robot,
             trajectoryObj,
-            estRobot
+            estRobot, 
+            sensedX,
+            sensedY, theta,
+            startPose
     end
     
     methods
@@ -17,8 +20,13 @@ classdef mrplSystem
             pause(4);
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
             pause(3);
-            encoderX = obj.robot.encoders.LatestMessage.Vector.X; encoderY = obj.robot.encoders.LatestMessage.Vector.Y;
+            obj.sensedX = 0; obj.sensedY = 0; obj.theta = 0;
+            encoderX = obj.robot.encoders.LatestMessage.Vector.X; 
+            encoderY = obj.robot.encoders.LatestMessage.Vector.Y;
             obj.estRobot = simRobot1(encoderX, encoderY);
+
+            
+            
             obj.executeTrajectories();
             pause(.1);
         end
@@ -33,23 +41,42 @@ classdef mrplSystem
             %fprintf("in executeTrajtoRelativePose 4 \n");
         end
         
+        function mat = bToA(obj, pose)
+            % Returns the homogeneous transform that converts coordinates from
+            % the b frame to the a frame.
+
+            mat = zeros(3,3);
+            x = pose(1); y = pose(2); th = pose(3);
+
+            mat(1,1) =  cos(th); mat(1,2) = -sin(th); mat(1,3) = x;
+            mat(2,1) =  sin(th); mat(2,2) =  cos(th); mat(2,3) = y;
+            mat(3,1) =  0.0    ; mat(3,2) =  0.0    ; mat(3,3) = 1;
+        end
         
+        function vec = matToPoseVec(obj, mat)
+            % Convert a homogeneous transform into a vector that can be
+            % passed to the contructor for this class.
+            x = mat(1,3);
+            y = mat(2,3);
+            w = atan2(-mat(1,2),mat(1,1));
+            vec = [x ; y ; w];
+        end
         
         function executeTrajectories(obj)
+            obj.startPose = [0;0;0];
             xf1 = 0.3048; yf1 = 0.3048; thf1 = 0.0;
             obj.executeTrajectoryToRelativePose(xf1, yf1, thf1, 1, 1);
+            obj.startPose = [xf1; yf1; thf1];
             pause(2);
-            %obj.mrplSystem.executeTrajectoryToRelativePose(cf1, yf1, thf1, -1);
-            fprintf("about to call 2nd time \n");
+            
             xf2 = -0.6096; yf2 = -0.6096; thf2 = -pi()/2.0;
             obj.executeTrajectoryToRelativePose(xf2, yf2, thf2, 1, 2);
             pause(2);
-            %obj.mrplSystem.executeTrajectoryToRelativePose(cf2, yf2, thf2, -1);
-            fprintf("about to call 3rd time \n");
+            obj.startPose = [xf2; yf2; thf2] + obj.startPose;
+            
             xf3 = -0.3048; yf3 = 0.3048; thf3 = pi()/2.0; 
             obj.executeTrajectoryToRelativePose(xf3, yf3, thf3, 1, 3);
             pause(2);
-            %obj.mrplSystem.executeTrajectoryToRelativePose(cf3, yf3, thf3, -1);
         end
 
         function executeTrajectory(obj, iteration)
@@ -60,10 +87,9 @@ classdef mrplSystem
                 firstLoop = true;
                 %tStart = tic;
                 tcurr = 0;
-                x = obj.robot.encoders.LatestMessage.Vector.X;
-                y = obj.robot.encoders.LatestMessage.Vector.Y;
+                xEnc = obj.robot.encoders.LatestMessage.Vector.X;
+                yEnc = obj.robot.encoders.LatestMessage.Vector.Y;
                 s = 0;
-                theta = 0; sensedX = 0; sensedY = 0;
                 referenceXArr = []; referenceYArr = []; sensedXArr = []; sensedYArr = [];
                 finalPose = trajectory.getFinalPose();
                 figure(iteration);
@@ -78,9 +104,11 @@ classdef mrplSystem
                 errorth = 0;
                 tDelay = 0.11;
                 tcurr = 0;
-                obj.estRobot.x = 0;  obj.estRobot.y = 0; obj.estRobot.prevEncoderX = x;
-                obj.estRobot.prevEncoderY = y; obj.estRobot.theta = 0;
-                while (s <= parms(3) && tcurr < lastT + tDelay) % || (errorth) > 0.02)
+                %obj.estRobot.x = 0;  obj.estRobot.y = 0; 
+                obj.estRobot.prevEncoderY = yEnc; %obj.estRobot.theta = 0;
+                obj.estRobot.prevEncoderX = xEnc;
+                obj.estRobot.tPrev = 0;
+                while (s <= parms(3) && (tcurr < lastT + tDelay)) % || (errorth) > 0.02)
                     if (firstLoop) 
                         firstLoop = false;
                         tStart = tic;
@@ -90,33 +118,37 @@ classdef mrplSystem
                        pause(0.001);
                     end
                     preval = currval;
-                    newx = obj.robot.encoders.LatestMessage.Vector.X;
-                    newy = obj.robot.encoders.LatestMessage.Vector.Y;
+                    newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
+                    newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
                     prevT = tcurr;
                     tcurr = toc(tStart);
-                    obj.estRobot.integrate(newx, newy, tcurr);
+                    obj.estRobot.integrate(newxEnc, newyEnc, tcurr);
                     
-                    sensedX = obj.estRobot.x;
-                    sensedY = obj.estRobot.y;
-                    theta = obj.estRobot.theta;
-                    ds = ((newx - x)+(newy-y))/2;
+                    obj.sensedX = obj.estRobot.x;
+                    obj.sensedY = obj.estRobot.y;
+                    obj.theta = obj.estRobot.theta;
+                    ds = ((newxEnc - xEnc)+(newyEnc-yEnc))/2;
                     s = s + ds;
                     %t = trajectory.getTimeAtDist(s) + 0.005;
                     %fprintf("got time at dist   t = %d\n", t);
-                    x = newx; y = newy;
-                    sensedXArr = [sensedXArr sensedX];
-                    sensedYArr = [sensedYArr sensedY];
+                    xEnc = newxEnc; yEnc = newyEnc;
+                    sensedXArr = [sensedXArr obj.sensedX];
+                    sensedYArr = [sensedYArr obj.sensedY];
                     if (tcurr-tDelay > lastT)
                         referencePose = finalPose;
+                        matrix = obj.bToA(obj.startPose)*obj.bToA(referencePose);
+                        referencePose = obj.matToPoseVec(matrix);
                     else
                         referencePose = trajectory.getPoseAtTime(tcurr-tDelay);
+                        matrix = obj.bToA(obj.startPose)*obj.bToA(referencePose);
+                        referencePose = obj.matToPoseVec(matrix);
                     end
-                    errorx = referencePose(1) - sensedX; errory = referencePose(2)-sensedY;
-                    errorth = referencePose(3) - theta;
+                    errorx = referencePose(1) - obj.sensedX; errory = referencePose(2)-obj.sensedY;
+                    errorth = referencePose(3) - obj.theta;
                     error = sqrt(errorx^2 + errory^2);
                     mat = zeros(2,2);%3,3);
-                    mat(1,1) = cos(theta); mat(1,2) = -sin(theta); %mat(1,3) = x;
-                    mat(2,1) = sin(theta); mat(2,2) = cos(theta); %mat(2,3) = y;
+                    mat(1,1) = cos(obj.theta); mat(1,2) = -sin(obj.theta); %mat(1,3) = x;
+                    mat(2,1) = sin(obj.theta); mat(2,2) = cos(obj.theta); %mat(2,3) = y;
                     %mat(3,1) = 0.0; mat(3,2) = 0.0; mat(3, 3) = 1.0;
                     kth = 1/0.3;%tao;
                     rpr = (mat^-1)*[errorx; errory];
@@ -138,9 +170,10 @@ classdef mrplSystem
                     [vl, vr] = robotModel.limitWheelVelocities([vl, vr]);
                     
                     obj.robot.sendVelocity(vl, vr);
-                    pause(0.05);
+                    pause(0.08);
                     
                 end
+                %obj.estRobot.integrate(newxEnc, newyEnc, tcurr);
                 obj.robot.sendVelocity(0,0);
                 pause(2);
                 figure(iteration);
@@ -148,7 +181,7 @@ classdef mrplSystem
                 title("Reference Trajectory versus the Sensed Trajectory");
                 xlabel('Position x (m)');
                 ylabel('Position y (m)');
-                fprintf("error %d \n", sqrt((sensedX-referencePose(1))^2 + (sensedY-referencePose(2))^2));
+                fprintf("error %d \n", sqrt((obj.sensedX-referencePose(1))^2 + (obj.sensedY-referencePose(2))^2));
                 legend("reference", "sensed");
         end
     end
