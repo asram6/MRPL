@@ -6,7 +6,7 @@ classdef mrplSystem
             trajectoryObj,
             startPose,
             sensedX,
-            sensedY, theta
+            sensedY, theta, estRobot
     end
     
     methods
@@ -19,10 +19,14 @@ classdef mrplSystem
 
         function obj = mrplSystem()
             %obj.controllerObj = controller();
-            obj.robot = raspbot('Raspbot-26');
+            obj.robot = raspbot('sim');
             pause(4);
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
             pause(3);
+            encoderX = obj.robot.encoders.LatestMessage.Vector.X;
+            encoderY = obj.robot.encoders.LatestMessage.Vector.Y;
+            obj.estRobot = simRobot1(encoderX, encoderY);
+            fprintf("got here");
             obj.sensedX = 0;
             obj.sensedY = 0;
             obj.theta = 0;
@@ -119,18 +123,13 @@ classdef mrplSystem
                        pause(0.001);
                     end
                     preval = currval;
+                    tcurr = toc(tStart);
                     newx = obj.robot.encoders.LatestMessage.Vector.X;
                     newy = obj.robot.encoders.LatestMessage.Vector.Y;
-                    prevT = tcurr;
-                    tcurr = toc(tStart);
-                    dt = tcurr- prevT;
-                    vlActual = (newx - x)/dt; 
-                    vrActual = (newy - y)/dt;
-                    vactual = (vlActual + vrActual) /2;
-                    omegaActual = (vrActual - vlActual) / 0.088;
-                    obj.theta = obj.theta + omegaActual * dt;
-                    obj.sensedX = obj.sensedX + vactual*cos(obj.theta)*dt;
-                    obj.sensedY = obj.sensedY + vactual*sin(obj.theta)*dt;
+                    obj.estRobot.integrate(newx, newy, tcurr);
+                    obj.theta = obj.estRobot.theta;
+                    obj.sensedX = obj.estRobot.x;
+                    obj.sensedY = obj.estRobot.y;
                     ds = ((newx - x)+(newy-y))/2;%sqrt((newx-x)^2 + (newy-y)^2)
                     s = s + ds;
                     %t = trajectory.getTimeAtDist(s) + 0.005;
