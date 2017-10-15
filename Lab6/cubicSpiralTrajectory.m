@@ -271,9 +271,12 @@ classdef cubicSpiralTrajectory < handle
                 oldkappa = obj.curvArray(i);
                 s = (i)*ds; 
                 kappa = s*(a + b*s)*(s - sf);
-                theta = oldtheta + (kappa * ds);
+                theta = oldtheta + (kappa * ds)/2;
+                theta = atan2(sin(theta), cos(theta));
                 x = oldx + (cos(theta) * ds); 
                 y = oldy + (sin(theta) * ds);
+                theta = theta + (kappa * ds)/2;
+                theta = atan2(sin(theta), cos(theta));
                 obj.distArray(i+1)  = s;
                 obj.poseArray(1, i+1)  = x;
                 obj.poseArray(2, i+1)  = y;
