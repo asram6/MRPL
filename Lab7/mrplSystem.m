@@ -8,7 +8,8 @@ classdef mrplSystem
             sensedX,
             sensedY, theta,
             startPose,
-            errorxarr, erroryarr, errortharr, varr, warr, tarr
+            errorxarr, erroryarr, errortharr, varr, warr, tarr,
+            encoderEventTime
     end
     
     methods
@@ -17,7 +18,7 @@ classdef mrplSystem
 
         function obj = mrplSystem()
             %obj.controllerObj = controller();
-            obj.robot = raspbot('Raspbot-31');
+            obj.robot = raspbot('Raspbot-29');
             pause(4);
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
             pause(3);
@@ -96,12 +97,12 @@ classdef mrplSystem
                 fprintf("in executeTrajectory before loop \n");
                 %lastI = size(trajectory.timeArray);
                 lastT = trajectory.getTrajectoryDuration();%timeArray(lastI(2));
-                tao = .6; %0.7;
+                tao = 0.6;%.27; %0.7;
                 prevV = 0;
                 error = 0;
                 errory = 0;
                 errorth = 0;
-                tDelay = 0.08;%0.11;
+                tDelay = 0.137;%0.11;
                 tcurr = 0;
                 %obj.estRobot.x = 0;  obj.estRobot.y = 0; 
                 obj.estRobot.prevEncoderY = yEnc; %obj.estRobot.theta = 0;
@@ -120,6 +121,7 @@ classdef mrplSystem
                     while (preval == currval)
                        pause(0.001);
                     end
+                    obj.encoderEventTime = double(obj.robot.encoders.LatestMessage.Header.Stamp.Sec) + double(obj.robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
                     preval = currval;
                     newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
                     newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
@@ -128,7 +130,7 @@ classdef mrplSystem
                     %prevT = tcurr;
                     obj.tarr = [obj.tarr tcurr];
                     
-                    obj.estRobot.integrate(newxEnc, newyEnc, tcurr);
+                    obj.estRobot.integrate(newxEnc, newyEnc, tcurr, obj.encoderEventTime);
                     
                     obj.sensedX = obj.estRobot.x;
                     obj.sensedY = obj.estRobot.y;
@@ -163,7 +165,7 @@ classdef mrplSystem
                     mat(1,1) = cos(obj.theta); mat(1,2) = -sin(obj.theta); %mat(1,3) = x;
                     mat(2,1) = sin(obj.theta); mat(2,2) = cos(obj.theta); %mat(2,3) = y;
                     %mat(3,1) = 0.0; mat(3,2) = 0.0; mat(3, 3) = 1.0;
-                    kth = 1/0.3;%tao;
+                    kth = 1/tao;%0.3;%tao;
                     rpr = (mat^-1)*[errorx; errory];
                     thekx = 1/tao;
                     prevV = trajectory.getVAtTime(tcurr-tDelay);
@@ -188,7 +190,16 @@ classdef mrplSystem
                     pause(0.08);
                     
                 end
-                %obj.estRobot.integrate(newxEnc, newyEnc, tcurr);
+                
+                while (preval == currval)
+                   pause(0.001);
+                end
+                obj.encoderEventTime = double(obj.robot.encoders.LatestMessage.Header.Stamp.Sec) + double(obj.robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
+                preval = currval;
+                newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
+                newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
+
+                obj.estRobot.integrate(newxEnc, newyEnc, tcurr, obj.encoderEventTime);
                 obj.robot.sendVelocity(0,0);
                 pause(2);
 %                 if iteration ~= 1
