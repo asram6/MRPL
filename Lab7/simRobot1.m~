@@ -21,8 +21,9 @@ classdef simRobot1 < handle
             x = obj.x;
         end
         
-        function integrate(obj, encoderX, encoderY, tCurr)
+        function integrate(obj, encoderX, encoderY, tCurr, encoderMessage)
             dt = tCurr - obj.tPrev;
+            dtWheel = 
             if dt ~= 0
                 obj.vl = (encoderX - obj.prevEncoderX)/dt; 
                 obj.vr = (encoderY - obj.prevEncoderY)/dt;
