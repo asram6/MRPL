@@ -8,8 +8,7 @@ classdef mrplSystem
             sensedX,
             sensedY, theta,
             startPose,
-            errorxarr, erroryarr, errortharr, varr, warr, tarr,
-            encoderEventTime
+            errorxarr, erroryarr, errortharr, varr, warr, tarr
     end
     
     methods
@@ -18,7 +17,7 @@ classdef mrplSystem
 
         function obj = mrplSystem()
             %obj.controllerObj = controller();
-            obj.robot = raspbot('Raspbot-29');
+            obj.robot = raspbot('Raspbot-19');
             pause(4);
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
             pause(3);
@@ -60,19 +59,20 @@ classdef mrplSystem
         
         function executeTrajectories(obj)
             obj.startPose = [0;0;0];
-            xf1 = 0.3048; yf1 = 0.3048; thf1 = 0.0;
+            xf1 = 0.3048; yf1 = 0; thf1 = 0.0;
+            %xf1 = 0.3048; yf1 = 0.3048; thf1 = 0.0;
             obj.executeTrajectoryToRelativePose(xf1, yf1, thf1, 1, 1);
-            obj.startPose = [xf1; yf1; thf1];
-            pause(2);
+            %obj.startPose = [xf1; yf1; thf1];
+            %pause(2);
             
-            xf2 = -0.6096; yf2 = -0.6096; thf2 = -pi()/2.0;
-            obj.executeTrajectoryToRelativePose(xf2, yf2, thf2, 1, 2);
-            pause(2);
-            obj.startPose = [xf2; yf2; thf2] + obj.startPose;
+            %xf2 = -0.6096; yf2 = -0.6096; thf2 = -pi()/2.0;
+            %obj.executeTrajectoryToRelativePose(xf2, yf2, thf2, 1, 2);
+            %pause(2);
+            %obj.startPose = [xf2; yf2; thf2] + obj.startPose;
             
-            xf3 = -0.3048; yf3 = 0.3048; thf3 = pi()/2.0; 
-            obj.executeTrajectoryToRelativePose(xf3, yf3, thf3, 1, 3);
-            pause(2);
+            %xf3 = -0.3048; yf3 = 0.3048; thf3 = pi()/2.0; 
+            %obj.executeTrajectoryToRelativePose(xf3, yf3, thf3, 1, 3);
+            %pause(2);
         end
 
         function executeTrajectory(obj, iteration)
@@ -97,7 +97,7 @@ classdef mrplSystem
                 fprintf("in executeTrajectory before loop \n");
                 %lastI = size(trajectory.timeArray);
                 lastT = trajectory.getTrajectoryDuration();%timeArray(lastI(2));
-                tao = 0.6;%.27; %0.7;
+                tao = 0.5;%.27; %0.7;
                 prevV = 0;
                 error = 0;
                 errory = 0;
@@ -108,29 +108,30 @@ classdef mrplSystem
                 obj.estRobot.prevEncoderY = yEnc; %obj.estRobot.theta = 0;
                 obj.estRobot.prevEncoderX = xEnc;
                 obj.estRobot.tPrev = 0;
+                pause(1);
                 while (tcurr < lastT + tDelay) % || (errorth) > 0.02)
                     if (firstLoop) 
                         firstLoop = false;
                         tStart = tic;
                         tcurr = 0;
                         prevT = 0;
-                    else
-                        prevT = tcurr;
-                        tcurr = toc(tStart);
+                    %else
+                    %    prevT = tcurr;
+                    %    tcurr = toc(tStart);
                     end
                     while (preval == currval)
                        pause(0.001);
                     end
-                    obj.encoderEventTime = double(obj.robot.encoders.LatestMessage.Header.Stamp.Sec) + double(obj.robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
+                    encoderEventTime = double(obj.robot.encoders.LatestMessage.Header.Stamp.Sec) + double(obj.robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
                     preval = currval;
                     newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
                     newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
                     
-                    %tcurr = toc(tStart);
-                    %prevT = tcurr;
+                    tcurr = toc(tStart);
+                    prevT = tcurr;
                     obj.tarr = [obj.tarr tcurr];
                     
-                    obj.estRobot.integrate(newxEnc, newyEnc, tcurr, obj.encoderEventTime);
+                    obj.estRobot.integrate(newxEnc, newyEnc, tcurr, encoderEventTime);
                     
                     obj.sensedX = obj.estRobot.x;
                     obj.sensedY = obj.estRobot.y;
@@ -146,17 +147,25 @@ classdef mrplSystem
                         referencePose = finalPose;
                         matrix = obj.bToA(obj.startPose)*obj.bToA(referencePose);
                         referencePose = obj.matToPoseVec(matrix);
+                        prevV = trajectory.getVAtTime(lastT);
+                        prevW = trajectory.getwAtTime(lastT);
                     elseif (tcurr > tDelay)
                         referencePose = trajectory.getPoseAtTime(tcurr-tDelay);
                         matrix = obj.bToA(obj.startPose)*obj.bToA(referencePose);
                         referencePose = obj.matToPoseVec(matrix);
+                        prevV = trajectory.getVAtTime(tcurr-tDelay);
+                        prevW = trajectory.getwAtTime(tcurr-tDelay);
                     else
                         referencePose = trajectory.getPoseAtTime(0);
                         matrix = obj.bToA(obj.startPose)*obj.bToA(referencePose);
                         referencePose = obj.matToPoseVec(matrix);
+                        prevV = trajectory.getVAtTime(0);
+                        prevW = trajectory.getwAtTime(0);
+                    
                     end
                     errorx = referencePose(1) - obj.sensedX; errory = referencePose(2)-obj.sensedY;
                     errorth = referencePose(3) - obj.theta;
+                    errorth = atan2(sin(errorth),cos(errorth));
                     obj.errorxarr = [obj.errorxarr errorx];
                     obj.erroryarr = [obj.erroryarr errory];
                     obj.errortharr = [obj.errortharr errorth];
@@ -168,16 +177,18 @@ classdef mrplSystem
                     kth = 1/tao;%0.3;%tao;
                     rpr = (mat^-1)*[errorx; errory];
                     thekx = 1/tao;
-                    prevV = trajectory.getVAtTime(tcurr-tDelay);
+                    
+                    %prevV = trajectory.getVAtTime(tcurr-tDelay);
                     theky = 2/(prevV*tao^2);
                     if (prevV < 0.05)
                         theky = 0;
                     end
                     up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
-                    prevW = trajectory.getwAtTime(tcurr-tDelay);
+                    %prevW = trajectory.getwAtTime(tcurr-tDelay);
                     V = prevV + up(1);
                     obj.varr = [obj.varr V];
                     w = prevW + up(2);
+                    w = atan2(sin(w),cos(w));
                     obj.warr = [obj.warr w];
                     referenceXArr = [referenceXArr referencePose(1)];
                     referenceYArr = [referenceYArr referencePose(2)];
@@ -187,19 +198,20 @@ classdef mrplSystem
                     [vl, vr] = robotModel.limitWheelVelocities([vl, vr]);
                     
                     obj.robot.sendVelocity(vl, vr);
-                    pause(0.08);
+                    pause(0.01);
                     
                 end
-                
+                %obj.robot.sendVelocity(0,0);
+                %pause(0.01);
                 while (preval == currval)
                    pause(0.001);
                 end
-                obj.encoderEventTime = double(obj.robot.encoders.LatestMessage.Header.Stamp.Sec) + double(obj.robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
+                encoderEventTime = double(obj.robot.encoders.LatestMessage.Header.Stamp.Sec) + double(obj.robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
                 preval = currval;
                 newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
                 newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
-
-                obj.estRobot.integrate(newxEnc, newyEnc, tcurr, obj.encoderEventTime);
+                tcurr = toc(tStart);
+                obj.estRobot.integrate(newxEnc, newyEnc, tcurr, encoderEventTime);
                 obj.robot.sendVelocity(0,0);
                 pause(2);
 %                 if iteration ~= 1
