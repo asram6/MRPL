@@ -19,7 +19,7 @@ sgn = 1;
 uref = .1;
 distActual = 0;
 sref = 0;
-tdelay = 0.11;
+tdelay = 0;
 sdelay = 0;
 graph2 = [];
 flag = 1; e = 0;
@@ -40,7 +40,7 @@ while (tcurr < (tdelay + 1 + 4.333333))
     
     encoderCurr = (robot.encoders.LatestMessage.Vector.X + robot.encoders.LatestMessage.Vector.Y) / 2;
     e = (sdelay)-(encoderCurr-encoderStart);
-    fprintf("e = %d\n", e);
+    %fprintf("e = %d\n", e);
     distActual = encoderCurr-encoderStart;
     dedt = (e-olde)/(tcurr-oldt);
     eint = eint + (e * (tcurr-oldt));

@@ -26,14 +26,14 @@ classdef simRobot1 < handle
         function integrate(obj, encoderX, encoderY, tCurr, encoderTime)
             dt2 = encoderTime - obj.prevEncoderTime;
             dt = tCurr - obj.tPrev;
-            fprintf("encoderTime %d, prevEncoderTime %d, dt2 %d\n", encoderTime, obj.prevEncoderTime, dt2);
             if dt2 ~= 0
                 obj.vl = (encoderX - obj.prevEncoderX)/dt; 
                 obj.vr = (encoderY - obj.prevEncoderY)/dt;
                 vactual = (obj.vl + obj.vr) /2;
                 omegaActual = (obj.vr - obj.vl) / robotModel.W; 
+                %omegaActual = atan2(sin(omegaActual), cos(omegaActual));
                 obj.theta = obj.theta + omegaActual * dt /2;
-                obj.theta = atan2(sin(obj.theta), cos(obj.theta));
+                %obj.theta = atan2(sin(obj.theta), cos(obj.theta));
                 obj.x = obj.x + vactual*cos(obj.theta)*dt;
                 obj.y = obj.y + vactual*sin(obj.theta)*dt;
                 obj.theta = obj.theta + omegaActual * dt /2;
@@ -42,7 +42,7 @@ classdef simRobot1 < handle
                 obj.prevEncoderY = encoderY;
                 obj.prevEncoderX = encoderX; 
                 obj.prevEncoderTime = encoderTime;
-                fprintf("encoderX %d, encoderY %d, dt %d, vactual %d, omegaActual %d, theta %d, x %d, y %d, encoderTime %d\n", encoderX, encoderY, dt, vactual, omegaActual, obj.theta, obj.x, obj.y, encoderTime);
+                %fprintf("encoderX %d, encoderY %d, dt %d, vactual %d, omegaActual %d, theta %d, x %d, y %d, encoderTime %d\n", encoderX, encoderY, dt, vactual, omegaActual, obj.theta, obj.x, obj.y, encoderTime);
             end
             
             

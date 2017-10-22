@@ -92,13 +92,16 @@ classdef cubicSpiralTrajectory < handle
                     % if tmax is exceeded in absolute value at any time.
                         s = (i-1)*ds; 
                         kappa = s*(a + b*s)*(s - sf);
-                        t = t + (kappa * ds);
+                        t = t + (kappa * ds)/2;
+                        t = atan2(sin(t), cos(t));
                         if (abs(t) > tMax)
                             broke = true;
                             continue;
                         end
                         x = x + (cos(t) * ds); 
                         y = y + (sin(t) * ds);
+                        t = t + (kappa * ds)/2;
+                        t = atan2(sin(t), cos(t));
                         r = r + (kappa^2)*ds; 
                     end
                     if(broke == true); continue; end;
@@ -263,7 +266,8 @@ classdef cubicSpiralTrajectory < handle
             b = obj.parms(2);
             sf = obj.parms(3);
             ds = sf/(obj.numSamples-1);
-            
+            thArr = [0];
+            figure(20);
             for i=1:obj.numSamples-1
                 oldx = obj.poseArray(1, i);
                 oldy = obj.poseArray(2, i);
@@ -281,12 +285,17 @@ classdef cubicSpiralTrajectory < handle
                 obj.poseArray(1, i+1)  = x;
                 obj.poseArray(2, i+1)  = y;
                 obj.poseArray(3, i+1)  = theta;
+                thArr = [thArr, theta];
                 pose = obj.poseArray;
                 %fprintf("i %d\n", i);
                 %fprintf('x:%f y:%f t:%f\n',pose(1),pose(2),pose(3));
                 
                 obj.curvArray(i+1) = kappa;
             end
+            arr = [1:obj.numSamples];
+            figure(20);
+            plot(arr, thArr);
+            %legend("curv", "theta");
             i = obj.numSamples;
             s = (i-1)*ds;  
             obj.distArray(i) = s;
