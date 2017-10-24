@@ -25,11 +25,12 @@ classdef exercise1
             % remove all points with bad range
             goodOnes = ranges > 0.06 & ranges < 4.0;
             ranges = ranges(goodOnes);
-            %indices = linspace(1,length(ranges),length(ranges));
-            %indices = indices(goodOnes);
+            indices = linspace(1,length(goodOnes),length(goodOnes));
+            indices = indices(goodOnes);
             % Compute the angles of surviving points
-            for i = 1:length(ranges) 
-                   [x1, y1, th1] = exercise1.irToXy(i, ranges(i));
+            for i = 1:length(indices) 
+                   %[x1, y1, th1] = exercise1.irToXy(i, ranges(i));
+                   [x1, y1, th1] = exercise1.irToXy(indices(i), ranges(i));
                    xArr = [xArr x1]; yArr = [yArr y1];
             end
             exercise1.findLineCandidate(ranges, xArr, yArr);
@@ -41,7 +42,7 @@ classdef exercise1
         end
         
         function findLineCandidate(ranges, xArr, yArr)
-            count = 0;
+            count = 0;  maxSetSize = 0;
             for i = 1:length(ranges)
                 pointSetX = []; pointSetY = [];
                 x = xArr(i); y = yArr(i);
@@ -65,7 +66,8 @@ classdef exercise1
                 Inertia = [Ixx Ixy;Ixy Iyy] / numPoints; % normalized
                 lambda = eig(Inertia);
                 lambda = sqrt(lambda)*1000.0;
-                if ((numPoints >= 5) && (lambda(1) < 1.3))
+                if ((numPoints >= 5) && (lambda(1) < 1.3) && numPoints > maxSetSize)
+                    maxSetSize = numPoints;
                     topLeftX = min(pointSetX); topLeftY = max(pointSetY);
                     bottomRightX = max(pointSetX); bottomRightY = min(pointSetY);
                     diagonal = sqrt((bottomRightX - topLeftX)^2 + (bottomRightY - topLeftY)^2);
@@ -73,11 +75,11 @@ classdef exercise1
                         pointSetX
                         pointSetY
                         count = count + 1;
-                        fprintf("in here 4\n");
+                        fprintf("in here 4 numCount = %d\n", numPoints);
                         fprintf("topleftx %d, topLefty %d, bottomrightx %d, bottomrighy %d\n", topLeftX, topLeftY, bottomRightX, bottomRightY);
                         
                         orientation = atan2(2*Ixy,Iyy-Ixx)/2.0;
-                        plot([topLeftX, topLeftY], [bottomRightX, bottomRightY]);
+                        plot([topLeftX, bottomRightX], [topLeftY, bottomRightY]);
                         hold on;
                         
                         
