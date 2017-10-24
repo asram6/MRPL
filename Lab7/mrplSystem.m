@@ -92,10 +92,10 @@ classdef mrplSystem
                 finalPose = trajectory.getFinalPose();
                 figure(iteration); 
                 %figure(iteration + 20); 
-                figure(iteration + 5);
+                %figure(iteration + 5);
                 figure(100);
                 parms = trajectory.getParms();
-                fprintf("in executeTrajectory before loop \n");
+                %fprintf("in executeTrajectory before loop \n");
                 %lastI = size(trajectory.timeArray);
                 lastT = trajectory.getTrajectoryDuration();%timeArray(lastI(2));
                 tao = 0.4;%.27; %0.7;
@@ -168,9 +168,7 @@ classdef mrplSystem
                         sensedTh = mod(obj.sensedTheta, (2*pi));
                         errorth =  refTh1 - sensedTh;
                         errorth = atan2(sin(errorth),cos(errorth));
-                        if (abs(errorth) > 2)
-                            fprintf("errorth %d, refTh %d, sensedTh %d\n", errorth, refTh, sensedTh);
-                        end
+                        
                         obj.errorxarr = [obj.errorxarr errorx];
                         obj.erroryarr = [obj.erroryarr errory];
                         obj.errortharr = [obj.errortharr errorth];
@@ -225,17 +223,17 @@ classdef mrplSystem
                 preval = currval;
                 newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
                 newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
-                fprintf("diffx %d, diffy %d\n", newxEnc-startX, newyEnc-startY);
+                %fprintf("diffx %d, diffy %d\n", newxEnc-startX, newyEnc-startY);
                 tcurr = toc(tStart);
                 obj.estRobot.integrate(newxEnc, newyEnc, tcurr, encoderEventTime);
                 obj.robot.sendVelocity(0,0);
-                pause(2);
+                %pause(2);
 %                 if iteration ~= 1
 %                     hold on;
 %                 end
-                figure(10 + iteration);
-                plot(obj.tarr, referenceXArr, obj.tarr, referenceYArr, obj.tarr, referenceThArr);
-                legend("x", "y", "th");
+                %figure(10 + iteration);
+                %plot(obj.tarr, referenceXArr, obj.tarr, referenceYArr, obj.tarr, referenceThArr);
+                %legend("x", "y", "th");
 
 
                 figure(100);
@@ -243,7 +241,7 @@ classdef mrplSystem
                 title("Reference Trajectory versus the Sensed Trajectory");
                 xlabel('Position x (m)');
                 ylabel('Position y (m)');
-                fprintf("error %d \n", sqrt((obj.sensedX-referencePose(1))^2 + (obj.sensedY-referencePose(2))^2));
+                %fprintf("error %d \n", sqrt((obj.sensedX-referencePose(1))^2 + (obj.sensedY-referencePose(2))^2));
                 legend("reference", "sensed");
                 hold on;
 %                 if iteration ~= 1
@@ -256,12 +254,12 @@ classdef mrplSystem
                 legend("x", "y", "th");
                 title("Trajectory" + iteration);
                 
-                figure(iteration + 5);
-                plot(obj.tarr, obj.varr, obj.tarr, obj.warr);
-                xlabel('time');
-                ylabel('velocity/ omega');
-                legend("v", "w");
-                title("Trajectory" + iteration);
+                %figure(iteration + 5);
+                %plot(obj.tarr, obj.varr, obj.tarr, obj.warr);
+                %xlabel('time');
+                %ylabel('velocity/ omega');
+                %legend("v", "w");
+                %title("Trajectory" + iteration);
 %                 %plot(obj.warr, obj.errorxarr, obj.warr, obj.erroryarr, obj.warr, obj.errortharr);
         end
     end
