@@ -16,16 +16,11 @@ classdef exercise1
 
         function exerciseOne()
             figure(1);
-            robot = raspbot('robot');
+            robot = raspbot('Raspbot-17');
             pause(2);
             robot.startLaser();
             pause(4);
-            totalranges = [];
-            ranges = robot.laser.LatestMessage.Ranges;
-            pause(10);
-            x = 0;
-            y = 0;
-            th = 0;
+            ranges = robot.laser.LatestMessage.Ranges;           
             xArr = []; yArr = [];
             % remove all points with bad range
             goodOnes = ranges > 0.06 & ranges < 4.0;
@@ -38,14 +33,15 @@ classdef exercise1
                    xArr = [xArr x1]; yArr = [yArr y1];
             end
             exercise1.findLineCandidate(ranges, xArr, yArr);
-            figure(1);
-            plot(xArr, yArr);
+            scatter(xArr, yArr, 'g');
+            
             
         robot.stopLaser();
 
         end
         
         function findLineCandidate(ranges, xArr, yArr)
+            count = 0;
             for i = 1:length(ranges)
                 pointSetX = []; pointSetY = [];
                 x = xArr(i); y = yArr(i);
@@ -59,11 +55,12 @@ classdef exercise1
                 end
                 numPoints = length(pointSetX);
                 centroidX = mean(pointSetX); centroidY = mean(pointSetY); 
-                pointSetX = pointSetX - centroidX; pointSetY = pointSetY - centroidY;
-                pointSetX1 = pointSetX*centroidX; pointSetY1 = pointSetY*centroidY;
+                pointSetXCloud = pointSetX - centroidX; pointSetYCloud = pointSetY - centroidY;
+                
+                pointSetX1 = pointSetXCloud*centroidX; pointSetY1 = pointSetYCloud*centroidY;
                 Ixx = sum(pointSetX1);
                 Iyy = sum(pointSetY1);
-                pointSetX2 = pointSetX*(-1*centroidY);
+                pointSetX2 = pointSetXCloud*(-1*centroidY);
                 Ixy = sum(pointSetX2);
                 Inertia = [Ixx Ixy;Ixy Iyy] / numPoints; % normalized
                 lambda = eig(Inertia);
@@ -72,15 +69,24 @@ classdef exercise1
                     topLeftX = min(pointSetX); topLeftY = max(pointSetY);
                     bottomRightX = max(pointSetX); bottomRightY = min(pointSetY);
                     diagonal = sqrt((bottomRightX - topLeftX)^2 + (bottomRightY - topLeftY)^2);
-                    if abs(diagonal - 0.127) <= 0.1
+                    if abs(diagonal - 0.127) <= 0.01
+                        pointSetX
+                        pointSetY
+                        count = count + 1;
+                        fprintf("in here 4\n");
+                        fprintf("topleftx %d, topLefty %d, bottomrightx %d, bottomrighy %d\n", topLeftX, topLeftY, bottomRightX, bottomRightY);
+                        
                         orientation = atan2(2*Ixy,Iyy-Ixx)/2.0;
-                        figure(1);
-                        plot(topLeftX, topLeftY, bottomRightX, bottomRightY);
+                        plot([topLeftX, topLeftY], [bottomRightX, bottomRightY]);
+                        hold on;
+                        
+                        
                     end
                     
                 end
                 
             end
+            fprintf("count %d\n", count);
             
              
         end

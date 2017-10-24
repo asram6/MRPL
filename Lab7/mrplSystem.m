@@ -12,12 +12,9 @@ classdef mrplSystem
     end
     
     methods
-        
-        
-
         function obj = mrplSystem()
             %obj.controllerObj = controller();
-            obj.robot = raspbot('Raspbot-19');
+            obj.robot = raspbot('Raspbot-17');
             pause(4);
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
             pause(3);
