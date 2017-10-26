@@ -16,17 +16,17 @@ classdef mrplSystemLab8
     methods
         
         
-        function executeTrajectoryLab8(obj, centroidX, centroidY, orientation)
+        function executeTrajectoryLab8(obj, thepose)
             obj.startPose = [0;0;0];
-            obj.executeTrajectoryToRelativePose(centroidX, centroidY, orientation, 1, 1);
+            obj.executeTrajectoryToRelativePose(thepose(1), thepose(2), thepose(3), 1, 1);
         end
         
         function obj = mrplSystemLab8(robot)
             %obj.controllerObj = controller();
             obj.robot = robot;
-            pause(4);
+            pause(2);
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
-            pause(3);
+            pause(2);
             obj.sensedX = 0; obj.sensedY = 0; obj.sensedTheta = 0;
             encoderX = obj.robot.encoders.LatestMessage.Vector.X; 
             encoderY = obj.robot.encoders.LatestMessage.Vector.Y;
@@ -183,7 +183,7 @@ classdef mrplSystemLab8
                         mat(1,1) = cos(obj.sensedTheta); mat(1,2) = -sin(obj.sensedTheta); %mat(1,3) = x;
                         mat(2,1) = sin(obj.sensedTheta); mat(2,2) = cos(obj.sensedTheta); %mat(2,3) = y;
                         %mat(3,1) = 0.0; mat(3,2) = 0.0; mat(3, 3) = 1.0;
-                        kth = 1/0.2;%tao;
+                        kth = 1/tao;
                         rpr = (mat^-1)*[errorx; errory];
                         thekx = 1/tao;
                     
