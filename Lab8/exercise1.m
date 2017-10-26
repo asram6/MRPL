@@ -6,7 +6,7 @@ classdef exercise1
     
     methods
         function obj = exercise1()
-            obj.robot = raspbot('Raspbot-16');
+            obj.robot = raspbot('Raspbot-30');
             obj.mrplSystem = mrplSystemLab8(obj.robot)
             obj.exerciseOne();
         end
@@ -18,8 +18,9 @@ classdef exercise1
                 % Finds the position and bearing of the endpoint of a range pixel in
                 % the plane.
                     %th1 = -5*(pi/360); %this needs 2 change
-                    thOffset = 0.0872665 - 0.0596773;
+                   % thOffset = 0.0872665 - 0.0596773;
                     %thOffset = .05236; %%atan2(0.087,0.993)+;
+                    thOffset = 0.07;
                     th = (i-1)*(pi/180)-thOffset;
                     if (th > pi)
                         th = th-2*pi;
@@ -74,7 +75,9 @@ classdef exercise1
             pause(.6);
             obj.robot.sendVelocity(0,0);
             pause(2);
+            fprintf("up before\n");
             obj.robot.forksUp();
+            fprintf("up after\n");
             pause(3);
         end
         
