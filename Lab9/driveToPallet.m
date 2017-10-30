@@ -23,10 +23,12 @@ classdef driveToPallet
                 end
                 pause(1);
                 obj.robot.forksDown();
-                pause(1);
-                obj.mrplSystem.moveRelDist(-.07, 1);
-                pause(1);
-                obj.mrplSystem.turnRelAngle(pi, 1);
+                if found
+                    pause(1);
+                    obj.mrplSystem.moveRelDist(-.07, 1);
+                    pause(1);
+                    obj.mrplSystem.turnRelAngle(pi, 1);
+                end
                 pause(12);
                 
                 currIteration = currIteration + 1;   
@@ -140,7 +142,8 @@ classdef driveToPallet
             scatter(xArr, yArr, 'g');
             centroidXFinal = 0; centroidYFinal = 0; orientationFinal = 0; found = false;
             hold on;
-            count = 0;  minDistance = 4.0; maxPoints = 0; maxEigenDist = 0;
+            count = 0;  minDistance = 4.0; maxPoints = 0;
+            addlPointX = 0; addlPointY = 0; 
             for i = 1:length(ranges)
                 pointSetX = []; pointSetY = [];
                 x = xArr(i); y = yArr(i);
@@ -170,25 +173,21 @@ classdef driveToPallet
                 
                 eig2 = eig(Inertia2);
                 
+                lambda2 = eig(Inertia);
                 lambda = eig(Inertia);
                 
-                %fprintf("eigstuff div %d  sub %d  new %d   old %d  \n", eig2(2)/lambda(2), eig2(2) - lambda(2), eig2(2), lambda(2));
-                eigenDist = eig2(2) - lambda(2);
-%                 if (abs(eig2(2) - lambda(2)) < .0001)
-%                     continue;
-%                 end
+                %fprintf("eigstuff div %d  sub %d  new %d   old %d  \n", eig2(2)/lambda2(2), eig2(2) - lambda(2), eig2(2), lambda(2));
+                if (eig2(2) - lambda(2) < .00025)
+                    continue;
+                end
                 
                 lambda = sqrt(lambda)*1000.0;
                 distanceThreshold = 0.01;
-                fprintf("maxEigenDist %d      eigenDist %d \n", maxEigenDist, eigenDist);
-                if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && ... 
-                    (distance < minDistance + distanceThreshold))
-                    maxEigenDist = eigenDist;
-                    fprintf("INSIDEEEE maxEigenDist %d      eigenDist %d \n", maxEigenDist, eigenDist);
+                if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && (distance < minDistance + distanceThreshold))
                     leftX = min(pointSetX); topY = max(pointSetY);
                     rightX = max(pointSetX); bottomY = min(pointSetY);
                     diagonal = sqrt((rightX - leftX)^2 + (bottomY - topY)^2);
-                    if (abs(diagonal - 0.127) <= 0.035)
+                    if abs(diagonal - 0.127) <= 0.035
                         found = true;
                         maxPoints = numPoints;
                         minDistance = distance;
@@ -215,7 +214,7 @@ classdef driveToPallet
             
                         
             if (found)
-                fprintf("FOUNNNNNNDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\n");
+                fprintf("FOUNNNNNNDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD  %d  %d\n", eig2(2) - lambda2(2), (eig2(2) - lambda2(2)) < 0.0002);
                 e = eig(Inertia);
                 fprintf("eig(matrix)(2) %d  \n", e(2));
                 %fprintf("orientation final %d\n", orientationFinal);
@@ -228,9 +227,7 @@ classdef driveToPallet
                  
                  newPose = obj.matToPoseVec(matrix);
                 obj.robot.forksDown();
-                pause(2);    
-                plot(addlPointX, addlPointY, 'b*');
-                hold on;
+                pause(2);                
                 plot([centroidXFinal newPose(1)], [centroidYFinal, newPose(2)]);
                 hold on;
                 obj.mrplSystem.executeTrajectoryLab8(newPose);
