@@ -13,7 +13,7 @@ classdef driveToPallet
     
         function doIT(obj)
             currIteration = 0;
-            numIterations = 3;
+            numIterations = 100;
             while(currIteration < numIterations)
                 count = 0;
                 found = false;
@@ -21,10 +21,13 @@ classdef driveToPallet
                     found = obj.exerciseOne();
                     count = count + 1;
                 end
+                pause(1);
                 obj.robot.forksDown();
+                pause(1);
                 obj.mrplSystem.moveRelDist(-.07, 1);
+                pause(1);
                 obj.mrplSystem.turnRelAngle(pi, 1);
-                pause(10);
+                pause(12);
                 
                 currIteration = currIteration + 1;   
             end
@@ -47,7 +50,6 @@ classdef driveToPallet
         end
 
         function found = exerciseOne(obj)
-            pause(2);
             obj.robot.startLaser();
             pause(4);
             ranges = obj.robot.laser.LatestMessage.Ranges;           
@@ -84,19 +86,16 @@ classdef driveToPallet
 %             end
 %             obj.findLineCandidate(ranges, xArr, yArr, -0.12);
 %             scatter(xArr, yArr, 'g');
-
-            obj.robot.stopLaser();  
-            fprintf("HERERERE\n");
-            obj.robot.sendVelocity(.1,.1);
-            pause(.6);
-            obj.robot.sendVelocity(0,0);
-            pause(2);
-            fprintf("HERERERE2\n");
-            obj.robot.forksUp();
-            fprintf("up before\n");
             
-            fprintf("up after\n");
-            pause(3);
+            if found
+                obj.robot.stopLaser();  
+                obj.robot.sendVelocity(.1,.1);
+                pause(.6);
+                obj.robot.sendVelocity(0,0);
+                pause(1);
+                obj.robot.forksUp();
+                pause(1);
+            end
         end
         
         function [ranges, xArr, yArr] = getTestData()
@@ -120,23 +119,7 @@ classdef driveToPallet
             obj.robot.stopLaser();
         end
         
-        function found = findLineCandidate(obj, ranges, xArr, yArr, offset)
-            scatter(xArr, yArr, 'g');
-            centroidXFinal = 0; centroidYFinal = 0; orientationFinal = 0; found = false;
-            hold on;
-            count = 0;  minDistance = 4.0; maxPoints = 0;
-            for i = 1:length(ranges)
-                pointSetX = []; pointSetY = [];
-                x = xArr(i); y = yArr(i);
-                for j = 1:length(ranges)
-                    otherX = xArr(j); otherY = yArr(j);
-                    dist = sqrt((otherX - x)^2 + (otherY - y)^2);
-                    threshold = 0.01;
-                    if dist <= 0.0635 + threshold;
-                        pointSetX = [pointSetX otherX];
-                        pointSetY = [pointSetY otherY];
-                    end
-                end
+        function [Inertia, centroidX, centroidY, numPoints, distance, Ixx, Ixy, Iyy] = getInertia(obj, pointSetX, pointSetY)
                 numPoints = length(pointSetX);
                 centroidX = mean(pointSetX); centroidY = mean(pointSetY); 
                 distance = sqrt(centroidX^2 + centroidY^2);
@@ -151,14 +134,61 @@ classdef driveToPallet
                 Iyy = sum(pointSetYCloud.^2);
                 Ixy = -1*sum(pointSetXCloud.*pointSetYCloud);
                 Inertia = [Ixx Ixy;Ixy Iyy] / numPoints; % normalized
+        end
+        
+        function found = findLineCandidate(obj, ranges, xArr, yArr, offset)
+            scatter(xArr, yArr, 'g');
+            centroidXFinal = 0; centroidYFinal = 0; orientationFinal = 0; found = false;
+            hold on;
+            count = 0;  minDistance = 4.0; maxPoints = 0; maxEigenDist = 0;
+            for i = 1:length(ranges)
+                pointSetX = []; pointSetY = [];
+                x = xArr(i); y = yArr(i);
+                minDist = 4.0;
+                for j = 1:length(ranges)
+                    otherX = xArr(j); otherY = yArr(j);
+                    dist = sqrt((otherX - x)^2 + (otherY - y)^2);
+                    threshold = 0.01;
+                    if dist <= 0.0635 + threshold
+                        pointSetX = [pointSetX otherX];
+                        pointSetY = [pointSetY otherY];
+                    else
+                        if dist < minDist
+                            addlPointX = otherX;
+                            addlPointY = otherY;
+                            minDist = dist;
+                        end
+                    end
+                    
+                end
+                newPointSetX = [pointSetX addlPointX];
+                newPointSetY = [pointSetY addlPointY];
+                
+                [Inertia2, centroidX2, centroidY2, numPoints2, dist2, ixx, ixy, iyy] = obj.getInertia(newPointSetX, newPointSetY);
+                
+                [Inertia, centroidX, centroidY, numPoints, distance, Ixx, Ixy, Iyy] = obj.getInertia(pointSetX, pointSetY);
+                
+                eig2 = eig(Inertia2);
+                
                 lambda = eig(Inertia);
+                
+                %fprintf("eigstuff div %d  sub %d  new %d   old %d  \n", eig2(2)/lambda(2), eig2(2) - lambda(2), eig2(2), lambda(2));
+                eigenDist = eig2(2) - lambda(2);
+%                 if (abs(eig2(2) - lambda(2)) < .0001)
+%                     continue;
+%                 end
+                
                 lambda = sqrt(lambda)*1000.0;
                 distanceThreshold = 0.01;
-                if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && (distance < minDistance + distanceThreshold))
+                
+                if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && ... 
+                    (distance < minDistance + distanceThreshold))
+                    maxEigenDist = eigenDist;
+                    fprintf("maxEigenDist %d      eigenDist %d \n", maxEigenDist, eigenDist);
                     leftX = min(pointSetX); topY = max(pointSetY);
                     rightX = max(pointSetX); bottomY = min(pointSetY);
                     diagonal = sqrt((rightX - leftX)^2 + (bottomY - topY)^2);
-                    if abs(diagonal - 0.127) <= 0.035
+                    if (abs(diagonal - 0.127) <= 0.035)
                         found = true;
                         maxPoints = numPoints;
                         minDistance = distance;
@@ -185,17 +215,22 @@ classdef driveToPallet
             
                         
             if (found)
-                fprintf("orientation final %d\n", orientationFinal);
+                fprintf("FOUNNNNNNDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\n");
+                e = eig(Inertia);
+                fprintf("eig(matrix)(2) %d  \n", e(2));
+                %fprintf("orientation final %d\n", orientationFinal);
                  Trs = [0;0;0];
                  Tso = [centroidXFinal, centroidYFinal, orientation];
                  %good was 0.12/ -.25 for first, -.12 for second
                  Tog = [offset; 0; 0];
-                 fprintf("Centroid x final: %d
+                 %fprintf("Centroid x final: %d   %d   %d \n", centroidXFinal, centroidYFinal, orientation);
                  matrix = obj.bToA(Trs)*obj.bToA(Tso)*obj.bToA(Tog);
+                 
                  newPose = obj.matToPoseVec(matrix);
-                 newPose
                 obj.robot.forksDown();
-                pause(2);                
+                pause(2);    
+                plot(addlPointX, addlPointY, 'b*');
+                hold on;
                 plot([centroidXFinal newPose(1)], [centroidYFinal, newPose(2)]);
                 hold on;
                 obj.mrplSystem.executeTrajectoryLab8(newPose);

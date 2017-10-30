@@ -84,9 +84,9 @@ classdef exercise1
         function [ranges, xArr, yArr] = getTestData()
             figure(1);
             robot = raspbot('Raspbot-17');
-            pause(2);
+            pause(1);
             robot.startLaser();
-            pause(4);
+            pause(1);
             ranges = robot.laser.LatestMessage.Ranges;           
             xArr = []; yArr = [];
             % remove all points with bad range
