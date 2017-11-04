@@ -90,7 +90,7 @@ classdef driveToPallet
 %             scatter(xArr, yArr, 'g');
             
             if found
-                obj.robot.stopLaser();  
+                %obj.robot.stopLaser();  
                 obj.robot.sendVelocity(.1,.1);
                 pause(.6);
                 obj.robot.sendVelocity(0,0);
@@ -118,7 +118,7 @@ classdef driveToPallet
                    [x1, y1, th1] = exercise1.irToXy(indices(i), ranges(i));
                    xArr = [xArr x1]; yArr = [yArr y1];
             end
-            obj.robot.stopLaser();
+            %obj.robot.stopLaser();
         end
         
         function [Inertia, centroidX, centroidY, numPoints, distance, Ixx, Ixy, Iyy] = getInertia(obj, pointSetX, pointSetY)
@@ -147,6 +147,9 @@ classdef driveToPallet
             for i = 1:length(ranges)
                 pointSetX = []; pointSetY = [];
                 x = xArr(i); y = yArr(i);
+                if x < 0
+                    continue;
+                end
                 minDist = 4.0;
                 for j = 1:length(ranges)
                     otherX = xArr(j); otherY = yArr(j);
