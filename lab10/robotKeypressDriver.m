@@ -16,14 +16,14 @@ classdef robotKeypressDriver < handle
     methods(Static = true)        
         function drive(robot,vGain)            
             % drive the robot    
-            fprintf("in drive\n");
             Vmax = robotKeypressDriver.linVel*vGain;            
             dV = robotKeypressDriver.angVel*robotModel.W*vGain;            
             key = pollKeyboard();  
             
-            fprintf("key %d \n", key);
+            %fprintf("key %d \n", key);
             
-            if(key ~= false)                
+            if(key ~= false)
+                fprintf("key %d\n", key);
                 if(strcmp(key,'uparrow'))                    
                     disp('up');                 
                     robot.sendVelocity(Vmax,Vmax);     
@@ -56,7 +56,7 @@ classdef robotKeypressDriver < handle
             fprintf("in constructor 2 \n");
             set(fh,'KeyPressFcn',@keyboardEventListener);
             pause(5);
-            kh = event.listener(gcf,'KeyPressFcn',@keyboardEventListener);
+            %kh = event.listener(gcf,'KeyPressFcn',@keyboardEventListener);
             pause(5);
             fprintf("in constructor 3 \n");
         end
@@ -84,7 +84,6 @@ function res = pollKeyboard()
 %   To use this, execute the following line:
 %   kh = event.listener(gcf,'KeyPressFcn',@keyboardEventListener);
 %   before calling this function.
-    fprintf("in poll keyboard start \n");
     global keypressDataReady;
     global keypressKey;
     keyboardDataReadyLast = keypressDataReady;
@@ -95,13 +94,13 @@ function res = pollKeyboard()
     else
         res = false;
     end
-    fprintf("in poll keyboard end \n");
 end
 
 % robot = raspbot("Rasbpot-17");
 % pause(3);
 % obj = robotKeypressDriver(gcf);
 % while true
-%     obj.drive(robot, 0.1);
+%     obj.drive(robot, 2.0);
+%     pause(0.1);
 % end
 
