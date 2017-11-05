@@ -51,14 +51,10 @@ classdef robotKeypressDriver < handle
         function obj = robotKeypressDriver(fh)       
             % create a robotKeypressDriver for the figure handle       
             % normally you call this with gcf for fh        
-            fprintf("in constructur 1 \n");
             obj.fh = fh;    
-            fprintf("in constructor 2 \n");
             set(fh,'KeyPressFcn',@keyboardEventListener);
-            pause(5);
+            pause(2);
             %kh = event.listener(gcf,'KeyPressFcn',@keyboardEventListener);
-            pause(5);
-            fprintf("in constructor 3 \n");
         end
     end
 end
@@ -67,7 +63,6 @@ end
 
 function keyboardEventListener(~,event)
 %keyboardEventListener Invoked when a keyboard character is pressed.
-    fprintf("in event listener \n ");
     global keypressFrame;
     global keypressDataReady;
     global keypressKey;
