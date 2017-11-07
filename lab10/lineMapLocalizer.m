@@ -27,7 +27,6 @@ classdef lineMapLocalizer < handle
             obj.gain = gain;         
             obj.errThresh = errThresh;     
             obj.gradThresh = gradThresh;
-            obj.gain
         end
 
 
@@ -56,12 +55,12 @@ classdef lineMapLocalizer < handle
             ids = find(r2 > obj.maxErr*obj.maxErr);        
         end
 
-        function avgErr2 = fitError(obj,pose,ptsInModelFrame)            
+        function avgErr2 = fitError(obj,inPose,ptsInModelFrame)            
             % Find the variance  of perpendicular distances of            
             % all points to all lines
             % transform the points 
             
-            worldPts = pose.bToA()*ptsInModelFrame;
+            worldPts = inPose.bToA()*ptsInModelFrame;
             r2 = obj.closestSquaredDistanceToLines(worldPts);      
             r2(r2 == Inf) = [];     
             err2 = sum(r2);        
@@ -77,11 +76,17 @@ classdef lineMapLocalizer < handle
 
         function [err2_Plus0,J] = getJacobian(obj,poseIn,modelPts)      
             % Computes the gradient of the error function          
-            err2_Plus0 = fitError(obj,poseIn,modelPts);      
-            eps = 1e-9;
+            err2_Plus0 = fitError(obj,poseIn,modelPts); 
+            %fprintf("jacobian error %d\n", err2_Plus0);
+            eps = 1e-7;
             
-            dp_x = [eps ; 0.0 ; 0.0];          
+            dp_x = [eps ; 0.0 ; 0.0]; 
             newPose = pose(poseIn.getPoseVec()+dp_x);
+            a = newPose.x();
+            b = newPose.y();
+            c = newPose.th();
+            d = fitError(obj, newPose, modelPts);
+            e = d - err2_Plus0;
             jacX = (fitError(obj, newPose, modelPts) - err2_Plus0)/eps;
             
             dp_y = [0.0 ; eps ; 0.0];          
@@ -96,9 +101,9 @@ classdef lineMapLocalizer < handle
             err2_Plus0 = sqrt(err2_Plus0);    
         end
         
-        function [success, outPose] = refinePose(obj, inPose, pointsInModelFrame, maxIters)%, robotBodyPts)
-            err = intmax;
-            grad = intmax;
+        function [success, outPose] = refinePose(obj, inPose, pointsInModelFrame, maxIters, robotBodyPts)
+            err = 100;
+            grad = 100;
             errArr = [];
             currIteration = 0;
             ptsThresh = 5;
@@ -107,38 +112,36 @@ classdef lineMapLocalizer < handle
                 success = false;
             else
                 
-                while(err >= obj.errThresh && grad >= obj.gradThresh && currIteration < maxIters)
+                while((err >= obj.errThresh) && (grad >= obj.gradThresh) && (currIteration < maxIters))
+                    condition2 = (grad > obj.gradThresh);
+                    condition1 = (err > obj.errThresh);
+                    diffgrad = grad - obj.gradThresh;
                     [err,J] = obj.getJacobian(inPose, pointsInModelFrame);
                     grad = abs(J(1) + J(2) + J(3));
-                    size(J)
-                    obj.gain
                     a = inPose.x() - obj.gain*J(1);
                     b = inPose.y() - obj.gain*J(2);
                     c = inPose.th() - obj.gain*J(3);
                     
                     inPose = pose(a, b, c);
+                    fprintf("in loop pose: %d, %d, %d, J: %d, %d, %d, gain: %d\n",inPose.x(), inPose.y(), inPose.th(),...
+                        J(1), J(2), J(3), obj.gain); 
                     worldBodyPts = inPose.bToA()*pointsInModelFrame;
+                    %fprintf("here\n");
+                    %worldBodyPts
                     x = [0 0; 0 1.2192]; y = [0 0; 1.2192 0];
                     %kh = plot(obj.lines_p1, obj.lines_p2, "b");
                     kh = plot(x, y, "b");
                     axis([-1, 2, -1, 2]); 
-                    obj.lines_p1
-                    size(obj.lines_p1)
-                    obj.lines_p2
-                    size(obj.lines_p2)
                     hold on
-                    %ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:),'k');
+                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:),'k');
                     hold on
                     kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:),'r');
                     hold off
-                    fprintf("here\n");
-                    pause(0.5);
+                    pause(0.001);
                     currIteration = currIteration + 1;
-                    err
-                    grad
+                   
                    
                 end
-                currIteration
                 
                 err >= obj.errThresh
                 grad >= obj.gradThresh
@@ -148,6 +151,7 @@ classdef lineMapLocalizer < handle
                     success = true;
                 end
                 outPose = inPose;
+                fprintf("refine pose %d, %d, %d", outPose.x(), outPose.y(), outPose.th());
             end
             
           

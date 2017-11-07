@@ -23,7 +23,6 @@ classdef robotKeypressDriver < handle
             %fprintf("key %d \n", key);
             
             if(key ~= false)
-                fprintf("key %d\n", key);
                 if(strcmp(key,'uparrow'))                    
                     disp('up');                 
                     robot.sendVelocity(Vmax,Vmax);     

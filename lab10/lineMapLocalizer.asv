@@ -26,7 +26,7 @@ classdef lineMapLocalizer < handle
             obj.lines_p2 = lines_p2;     
             obj.gain = gain;         
             obj.errThresh = errThresh;     
-            obj.gradThresh = gradThresh;   
+            obj.gradThresh = gradThresh;
         end
 
 
@@ -48,18 +48,19 @@ classdef lineMapLocalizer < handle
         
 
 
-        function ids = throwOutliers(obj,pose,ptsInModelFrame)            
+        function ids = throwOutliers(obj,currPose,ptsInModelFrame)            
             % Find ids of outliers in a scan.             
-            worldPts = pose.bToA()*ptsInModelFrame;
+            worldPts = currPose.bToA()*ptsInModelFrame;
             r2 = obj.closestSquaredDistanceToLines(worldPts);     
-            ids = find(r2 > maxErr*maxErr);        
+            ids = find(r2 > obj.maxErr*obj.maxErr);        
         end
 
-        function avgErr2 = fitError(obj,pose,ptsInModelFrame)            
+        function avgErr2 = fitError(obj,inPose,ptsInModelFrame)            
             % Find the variance  of perpendicular distances of            
             % all points to all lines
-            % transform the points            
-            worldPts = pose.bToA()*ptsInModelFrame;
+            % transform the points 
+            
+            worldPts = inPose.bToA()*ptsInModelFrame;
             r2 = obj.closestSquaredDistanceToLines(worldPts);      
             r2(r2 == Inf) = [];     
             err2 = sum(r2);        
@@ -75,49 +76,94 @@ classdef lineMapLocalizer < handle
 
         function [err2_Plus0,J] = getJacobian(obj,poseIn,modelPts)      
             % Computes the gradient of the error function          
-            err2_Plus0 = fitError(obj,poseIn,modelPts);      
+            err2_Plus0 = fitError(obj,poseIn,modelPts); 
+            fprintf("jacobian error %d\n", err2_Plus0);
             eps = 1e-9;
             
-            dp_x = [eps ; 0.0 ; 0.0];          
-            newPose = pose(poseIn.getPose+dp_x);
-            jacX = fitError(newPose - err2_Plus0)/eps;
+            dp_x = [eps ; 0.0 ; 0.0];  
+            newPose1 = pose(poseIn.x()+
+            newPose1 = pose(poseIn.getPoseVec()+dp_x);
+            a = newPose1.x();
+            b = newPose1.y();
+            c = newPose1.th();
+            d = fitError(obj, newPose1, modelPts);
+            jacX = (fitError(obj, newPose1, modelPts) - err2_Plus0)/eps;
             
             dp_y = [0.0 ; eps ; 0.0];          
-            newPose = pose(poseIn.getPose+dp_y);
-            jacY = fitError(newPose - err2_Plus0)/eps;
+            newPose = pose(poseIn.getPoseVec()+dp_y);
+            jacY = (fitError(obj, newPose, modelPts) - err2_Plus0)/eps;
             
             dp_th = [0.0 ; 0.0; eps];          
-            newPose = pose(poseIn.getPose+dp_th);
-            jacTh = fitError(newPose - err2_Plus0)/eps;
+            newPose = pose(poseIn.getPoseVec()+dp_th);
+            jacTh = (fitError(obj, newPose, modelPts) - err2_Plus0)/eps;
             
             J = [jacX, jacY, jacTh];   
             err2_Plus0 = sqrt(err2_Plus0);    
         end
         
-        function [err, J] = gradientDescent(obj, pose, modelPts)
+        function [success, outPose] = refinePose(obj, inPose, pointsInModelFrame, maxIters, robotBodyPts)
+            err = 100;
+            grad = 100;
+            errArr = [];
+            currIteration = 0;
+            ptsThresh = 5;
+            outPose = inPose;
+            if (length(pointsInModelFrame) < ptsThresh)
+                success = false;
+            else
+                
+                while((err >= obj.errThresh) && (grad >= obj.gradThresh) && (currIteration < maxIters))
+                    condition2 = (grad > obj.gradThresh);
+                    condition1 = (err > obj.errThresh);
+                    diffgrad = grad - obj.gradThresh;
+                    [err,J] = obj.getJacobian(inPose, pointsInModelFrame);
+                    grad = abs(J(1) + J(2) + J(3));
+                    a = inPose.x() - obj.gain*J(1);
+                    b = inPose.y() - obj.gain*J(2);
+                    c = inPose.th() - obj.gain*J(3);
+                    
+                    inPose = pose(a, b, c);
+                    fprintf("in loop pose: %d, %d, %d, J: %d, %d, %d, gain: %d\n",inPose.x(), inPose.y(), inPose.th(),...
+                        J(1), J(2), J(3), obj.gain); 
+                    worldBodyPts = inPose.bToA()*pointsInModelFrame;
+                    x = [0 0; 0 1.2192]; y = [0 0; 1.2192 0];
+                    %kh = plot(obj.lines_p1, obj.lines_p2, "b");
+                    kh = plot(x, y, "b");
+                    axis([-1, 5, -1, 5]); 
+                    hold on
+                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:),'k');
+                    hold on
+                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:),'r');
+                    hold off
+                    pause(0.5);
+                    currIteration = currIteration + 1;
+                   
+                   
+                end
+                
+                err >= obj.errThresh
+                grad >= obj.gradThresh
+                if (err >= obj.errThresh && grad >= obj.gradThresh)
+                    success = false;
+                else
+                    success = true;
+                end
+                outPose = inPose;
+                fprintf("refine pose %d, %d, %d", outPose.x(), outPose.y(), outPose.th());
+            end
+            
+          
             
         end
         
-        function [success, outPose] = refinePose(obj, pose, pointsInModelFrame, maxIters)
-            err = 0;
-            grad = 0;
-            errArr = [];
-            while(err < obj.errThresh && grad < obj.gradThresh)
-                [err,J] = obj.getJacobian(pose, pointsInModelF);
-                grad = sqrt(J(1)^2 + J(2)^2 + J(3)^2);
-                obj.gain = obj.gain - 0.5 * grad; 
-                [success, pose] = refinePose(obj, pose, pointsInModelFrame, maxIters);
-            end
-            
-            if (length(pointsInModelFrame) < ptsThresh)
-                [success, outPose] = [false, pose];
-            else
-                pose(1) = pose(1) + obj.gain*J(1); 
-                pose(2) = pose(2) + obj.gain*J(2);
-                pose(3) = pose(3) + obj.gain*J(3);
-                outPose = pose;
-                success = true;
-            end
+        function testJacobian(obj)
+            xPts = [0, 4, 0, -4, 5, -5, 0, 0, 0, 0];
+            yPts = [0, 0, 4, 0, 0, 0, 5, -5, -4, 1];
+            thPts = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+            pointsInModelFrame = [xPts ; yPts; thPts];
+            [err, J] = obj.getJacobian(pose(1,-1,0), pointsInModelFrame);
+            err
+            J
             
         end
         
@@ -127,9 +173,9 @@ classdef lineMapLocalizer < handle
             p2 = [ 2 ; -2];
             p3 = [ 2 ;  2];
             p4 = [-2 ;  2];
+            obj.lines_p1 = [p1 p2 p3 p4];
+            obj.lines_p2 = [p2 p3 p4 p1];
             
-            lines_p1 = [p1 p2 p3 p4];
-            lines_p2 = [p2 p3 p4 p1];
             
             % Set up test points
             nPts = 10;
@@ -145,17 +191,21 @@ classdef lineMapLocalizer < handle
             y1pts = [y1 y2 y3];
             w1pts = w;
             
-            modelPts = [x1pts ; y1pts ; w1pts];
+            pointsInModelFrame = [x1pts ; y1pts ; w1pts];
             
             % pick a pose
             dx = -0.05*rand();
             dy = -0.05*rand();
             dt = -0.05+0.2*rand();
             thePose = pose(0.0+dx,0.0+dy,0.0+dt);
+            ids = throwOutliers(obj, pose, pointsInModelFrame);
             
-            [err2_Plus0,J] = obj.getJacobian(thePose, modelPts);
-            err2_Plus0
-            J
+            allIds = linspace(1, length(pointsInModelFrame), length(pointsInModelFrame));
+            goodIds = setdiff(allIds, ids);
+            pointsInModelFrame = pointsInModelFrame(:, goodIds);
+            
+            refinePose(obj, thePose, pointsInModelFrame, 15);
+            
         end
     
     

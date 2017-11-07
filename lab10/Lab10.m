@@ -38,28 +38,30 @@ classdef Lab10
         function lab10(obj)
             obj.robot.startLaser();
             pause(2);
-            currPose = pose(15*0.0254, 9*0.0254, pi/2.0);
-            
+            currPose = pose(12*0.0254, 12*0.0254, pi/2.0);
+            bodyPts = robotModel.bodyGraph();
+
             while true
-                bodyPts = robotModel.bodyGraph();
-                worldBodyPts = currPose.bToA()*bodyPts;
+                robotBodyPts = currPose.bToA()*bodyPts;
                 pts = obj.robot.laser.LatestMessage.Ranges;
-                xArr = []; yArr = []; thArr = [];
+                xArr = []; yArr = []; thArr = []; wArr = [];
                 for i = 1:length(pts)
-                    [x,y,th] = obj.irToXy(i, pts(i));
-                    xArr = [xArr x];
-                    yArr = [yArr y];
-                    thArr = [thArr th];
+                    if (mod(i, 10) == 0)
+                        [x,y,th] = obj.irToXy(i, pts(i));
+                        xArr = [xArr x];
+                        yArr = [yArr y];
+                        wArr = [wArr 1.0];
+                    end
                 end
-                pointsInModelFrame = [xArr ; yArr; thArr];
+                pointsInModelFrame = [xArr ; yArr; wArr];
                 ids = obj.localizer.throwOutliers(currPose, pointsInModelFrame);
             
                 allIds = linspace(1, length(pointsInModelFrame), length(pointsInModelFrame));
                 goodIds = setdiff(allIds, ids);
                 pointsInModelFrame = pointsInModelFrame(:, goodIds);
-
-                [success, currPose] = obj.localizer.refinePose(currPose, pointsInModelFrame, 10);
-                obj.driver.drive(obj.robot, 3.0);
+                [success, currPose] = obj.localizer.refinePose(currPose, pointsInModelFrame, 15, robotBodyPts);
+                fprintf("pose %d, %d, %d\n", currPose.x(),currPose.y(), currPose.th());
+                obj.driver.drive(obj.robot, 2.0);
             end
         end
         
