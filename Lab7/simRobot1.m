@@ -23,10 +23,10 @@ classdef simRobot1 < handle
             x = obj.x;
         end
         
-        function integrate(obj, encoderX, encoderY, tCurr, encoderTime)
-            dt2 = encoderTime - obj.prevEncoderTime;
+        function integrate(obj, encoderX, encoderY, tCurr)
+            %dt2 = encoderTime - obj.prevEncoderTime;
             dt = tCurr - obj.tPrev;
-            if dt2 ~= 0
+            %if dt2 ~= 0
                 obj.vl = (encoderX - obj.prevEncoderX)/dt; 
                 obj.vr = (encoderY - obj.prevEncoderY)/dt;
                 vactual = (obj.vl + obj.vr) /2;
@@ -41,9 +41,9 @@ classdef simRobot1 < handle
                 obj.tPrev = tCurr;
                 obj.prevEncoderY = encoderY;
                 obj.prevEncoderX = encoderX; 
-                obj.prevEncoderTime = encoderTime;
+                %obj.prevEncoderTime = encoderTime;
                 %fprintf("encoderX %d, encoderY %d, dt %d, vactual %d, omegaActual %d, theta %d, x %d, y %d, encoderTime %d\n", encoderX, encoderY, dt, vactual, omegaActual, obj.theta, obj.x, obj.y, encoderTime);
-            end
+           % end
             
             
             
