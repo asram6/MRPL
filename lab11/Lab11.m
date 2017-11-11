@@ -110,7 +110,12 @@ classdef Lab11
             end
         end
         
-        
+        function executeTrajectoryToAbsPose(obj,xfa,yfa,thfa,vmax,sgn,useMap)      
+            % Execute a trajectory using state estimator as feedback      
+            % Plan the trajectory. The terminal pose is specifie      
+            % in world coordinates (not start relative). 
+            % fill me in   
+        end
         
     end
 end
