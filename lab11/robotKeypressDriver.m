@@ -20,7 +20,7 @@ classdef robotKeypressDriver < handle
             dV = robotKeypressDriver.angVel*robotModel.W*vGain;            
             key = pollKeyboard();  
             
-            %fprintf("key %d \n", key);
+            fprintf("key %d \n", key);
             
             if(key ~= false)
                 if(strcmp(key,'uparrow'))                    

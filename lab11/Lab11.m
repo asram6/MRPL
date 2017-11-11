@@ -41,11 +41,10 @@ classdef Lab11
             obj.estRobot = simRobot1(encoderX, encoderY);
             
             pause(2);
-            obj.lab11();
-            
-            
-            
+            obj.lab11(); 
         end
+        
+        
         
         function lab11(obj)
             obj.robot.startLaser();
