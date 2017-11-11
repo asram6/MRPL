@@ -174,7 +174,7 @@ classdef Lab11
             xf2 = 0.9144; yf2 = 0.3048; thf2 = 0.0;
             obj.executeTrajectoryToAbsPose(xf2, yf2, thf2, 0.2, 1, 1, 2);
             pause(2);
-            obj.startPose = [xf2; yf2; thf2];
+            obj.startPose = [xf2; yf2; thf2] + obj.startPose;
             
             xf3 = 0.6096; yf3 = 0.6096; thf3 = pi()/2.0;
             xf3 = 1.2192; 
@@ -241,8 +241,6 @@ classdef Lab11
                 referenceThArr = [];
                 sensedThArr = [];
                 pause(1);
-                poseEst = pose(obj.startPose(1), obj.startPose(2), obj.startPose(3));
-                newRangeImage = false;
                 bodyPts = robotModel.bodyGraph();
                 while (tcurr < lastT + tDelay) % || (errorth) > 0.02)
                     if (firstLoop) 
@@ -271,14 +269,11 @@ classdef Lab11
                         V = 0;
                         w = 0;
                     end
-                    newRangeImage = false;
-                    if (preval2 ~= currval2)
-                        newRangeImage = true;
-                        %fprintf("before %d \n", toc(tStart));
-                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts);
-                        %fprintf("after %d \n", toc(tStart));
-                        preval2 = currval2;
-                    end
+                    
+                    if (preval2 != currval2
+                    fprintf("before %d \n", toc(tStart));
+                    poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts);
+                    fprintf("after %d \n", toc(tStart));
                     
                     xEnc = newxEnc; yEnc = newyEnc;
                     sensedXArr = [sensedXArr x(poseEst)];
@@ -319,14 +314,11 @@ classdef Lab11
                         if (prevV < 0.05)
                             theky = 0;
                         end
-                        if (newRangeImage == true)
-                            up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
-                        else
-                            up = [0;0;0];
-                        end
+                        up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
                         if (abs(errorth) < pi()/2 && abs(errorx) < 0.5 && abs(errory) < 0.5)
                             up = [0;0;0];
                         end
+                        up = [0;0;0];
                         %prevW = trajectory.getwAtTime(tcurr-tDelay);
                         V = prevV + up(1);
                     

@@ -57,16 +57,16 @@ classdef mrplSystem
         function executeTrajectories(obj)
             obj.startPose = [0;0;0];
             %xf1 = 0.9144; yf1 = 0; thf1 = pi;
-            xf1 = 0.3048; yf1 = 0.9144; thf1 = pi()/2.0;
+            xf1 = 0.3048; yf1 = 0.3048; thf1 = 0.0;
             obj.executeTrajectoryToRelativePose(xf1, yf1, thf1, 1, 1);
             obj.startPose = [xf1; yf1; thf1];
             pause(2);
-            xf2 = 0.9144; yf2 = -0.3048; thf2 = 0.0;
+            xf2 = -0.6096; yf2 = -0.6096; thf2 = -pi()/2.0;
             obj.executeTrajectoryToRelativePose(xf2, yf2, thf2, 1, 2);
             pause(2);
             obj.startPose = [xf2; yf2; thf2] + obj.startPose;
             
-            xf3 = 0.6096; yf3 = 0.6096; thf3 = pi()/2.0;
+            xf3 = -0.3048; yf3 = 0.3048; thf3 = pi()/2.0; 
             obj.executeTrajectoryToRelativePose(xf3, yf3, thf3, 1, 3);
             pause(2);
         end

@@ -132,10 +132,12 @@ classdef lineMapLocalizer < handle
                     %kh = plot(obj.lines_p1, obj.lines_p2, "b");
                     kh = plot(x, y, "b");
                     axis([-1, 2, -1, 2]); 
+                    %figure(50);
                     hold on
-                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:),'k');
+                    %ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:),'k');
                     hold on
-                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:),'r');
+                    %figure(50);
+                    %kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:),'r');
                     hold off
                     pause(0.001);
                     currIteration = currIteration + 1;
