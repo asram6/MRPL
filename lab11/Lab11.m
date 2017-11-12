@@ -67,7 +67,7 @@ classdef Lab11 < handle
                 pts = obj.robot.laser.LatestMessage.Ranges;
                 xArr = []; yArr = []; thArr = []; wArr = [];
                 for i = 1:length(pts)
-                    if (mod(i, 10) == 0)
+                    if (mod(i, 5) == 0)
                         [x,y,th] = obj.irToXy(i, pts(i));
                         xArr = [xArr x];
                         yArr = [yArr y];
@@ -85,7 +85,7 @@ classdef Lab11 < handle
                 [success, poseLidar] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 11, robotBodyPts);
 
                 %step 3: new pest from pest and plid
-                k = 0.25; % <= 1/4
+                k = 0.25;%0.25; % <= 1/4
                 newTh = poseEst.th() + k*(poseLidar.th() - poseEst.th());
                 newTh = atan2(sin(newTh),cos(newTh));
                 newX = poseEst.x() + k*(poseLidar.x()-poseEst.x());
