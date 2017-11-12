@@ -123,19 +123,22 @@ classdef lineMapLocalizer < handle
                     c = inPose.th() - obj.gain*J(3);
                     
                     inPose = pose(a, b, c);
-                    fprintf("in loop pose: %d, %d, %d, J: %d, %d, %d, gain: %d\n",inPose.x(), inPose.y(), inPose.th(),...
-                        J(1), J(2), J(3), obj.gain); 
+                    %fprintf("in loop pose: %d, %d, %d, J: %d, %d, %d, gain: %d\n",inPose.x(), inPose.y(), inPose.th(),...
+                    %    J(1), J(2), J(3), obj.gain); 
                     worldBodyPts = inPose.bToA()*pointsInModelFrame;
                     %fprintf("here\n");
                     %worldBodyPts
                     x = [0 0; 0 1.2192]; y = [0 0; 1.2192 0];
                     %kh = plot(obj.lines_p1, obj.lines_p2, "b");
-                    kh = plot(x, y, "b");
+                    kh = plot(x, y);
+                    title('Robot WTF Lidar Points With Wall');
+                    xlabel('X (m)');
+                    ylabel('Y (m)');
                     axis([-1, 2, -1, 2]); 
                     hold on
-                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:),'k');
+                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
                     hold on
-                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:),'r');
+                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
                     hold off
                     pause(0.001);
                     currIteration = currIteration + 1;
@@ -143,15 +146,13 @@ classdef lineMapLocalizer < handle
                    
                 end
                 
-                err >= obj.errThresh
-                grad >= obj.gradThresh
                 if (err >= obj.errThresh && grad >= obj.gradThresh)
                     success = false;
                 else
                     success = true;
                 end
                 outPose = inPose;
-                fprintf("refine pose %d, %d, %d", outPose.x(), outPose.y(), outPose.th());
+                %fprintf("refine pose %d, %d, %d", outPose.x(), outPose.y(), outPose.th());
             end
             
           
@@ -163,10 +164,7 @@ classdef lineMapLocalizer < handle
             yPts = [0, 0, 4, 0, 0, 0, 5, -5, -4, 1];
             thPts = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
             pointsInModelFrame = [xPts ; yPts; thPts];
-            [err, J] = obj.getJacobian(pose(1,-1,0), pointsInModelFrame);
-            err
-            J
-            
+            [err, J] = obj.getJacobian(pose(1,-1,0), pointsInModelFrame);            
         end
         
         function test(obj)
@@ -206,7 +204,7 @@ classdef lineMapLocalizer < handle
             goodIds = setdiff(allIds, ids);
             pointsInModelFrame = pointsInModelFrame(:, goodIds);
             
-            refinePose(obj, thePose, pointsInModelFrame, 15);
+            refinePose(obj, thePose, pointsInModelFrame, 10);
             
         end
     

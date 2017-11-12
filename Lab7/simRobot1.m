@@ -15,7 +15,7 @@ classdef simRobot1 < handle
             obj.prevEncoderX = encoderX;
             obj.prevEncoderY = encoderY;
             obj.prevEncoderTime = 0;
-            obj.x = 0; obj.y = 0; obj.theta = 0;
+            obj.x = 0.6096; obj.y = 0.6096; obj.theta = pi()/2;
             obj.tPrev = 0; obj.vl = 0; obj.vr;
         end
         

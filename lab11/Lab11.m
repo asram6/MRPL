@@ -1,7 +1,8 @@
-classdef Lab11
+classdef Lab11 < handle
     properties
         localizer; driver; robot; estRobot; startPose; trajectoryObj;
         errorxarr; erroryarr ; errortharr; varr; warr; tarr; 
+        odometryX;odometryY; lidarX; lidarY;
     end
     
     methods
@@ -23,15 +24,16 @@ classdef Lab11
         end
             
         function obj = Lab11()
+            obj.odometryX = [];obj.odometryY = []; obj.lidarX = []; obj.lidarY = [];
             p1 = [0 ; 0];
             p2 = [ 0 ; 1.2192];
             p3 = [ 1.2192 ;  0];
             lines_p1 = [p1 p1];
             lines_p2 = [p2 p3];
-            obj.localizer = lineMapLocalizer(lines_p1, lines_p2, 0.3, 0.004, 0.0005);
+            obj.localizer = lineMapLocalizer11(lines_p1, lines_p2, 0.3, 0.01, 0.0005);%0.004, 0.0005);
             obj.driver = robotKeypressDriver(gcf);
             
-            obj.robot = raspbot('Raspbot-17');
+            obj.robot = raspbot('Raspbot-32');
             pause(2);
             
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
@@ -46,44 +48,54 @@ classdef Lab11
             obj.executeTrajectories(); 
         end
         
-        function poseEst = updateStateFromEncodersAtTime(obj,newx,newy,tcurr, bodyPts)
+        function poseEst = updateStateFromEncodersAtTime(obj,newx,newy,tcurr, bodyPts, flag)
             obj.estRobot.integrate(newx, newy, tcurr);
             %step 1: odometry pose
+           
             poseEst = pose(obj.estRobot.x, obj.estRobot.y, obj.estRobot.theta);
-
-
-            %step 2: lidar pose 
-            robotBodyPts = poseEst.bToA()*bodyPts;
-            pts = obj.robot.laser.LatestMessage.Ranges;
-            xArr = []; yArr = []; thArr = []; wArr = [];
-            for i = 1:length(pts)
-                if (mod(i, 10) == 0)
-                    [x,y,th] = obj.irToXy(i, pts(i));
-                    xArr = [xArr x];
-                    yArr = [yArr y];
-                    wArr = [wArr 1.0];
+            obj.odometryX = [obj.odometryX, obj.estRobot.x];
+            obj.odometryY = [obj.odometryY, obj.estRobot.y];
+%             fprintf("IN UPDATE STATE START \n");
+%             obj.odometryX
+%             obj.estRobot.x
+%             obj.odometryY
+%             obj.estRobot.y
+%             fprintf("IN UPDATE STATE END \n");
+            if (~flag)
+                %step 2: lidar pose 
+                robotBodyPts = poseEst.bToA()*bodyPts;
+                pts = obj.robot.laser.LatestMessage.Ranges;
+                xArr = []; yArr = []; thArr = []; wArr = [];
+                for i = 1:length(pts)
+                    if (mod(i, 10) == 0)
+                        [x,y,th] = obj.irToXy(i, pts(i));
+                        xArr = [xArr x];
+                        yArr = [yArr y];
+                        wArr = [wArr 1.0];
+                    end
                 end
+                pointsInModelFrame = [xArr ; yArr; wArr];
+                ids = obj.localizer.throwOutliers(poseEst, pointsInModelFrame);
+
+                allIds = linspace(1, length(pointsInModelFrame), length(pointsInModelFrame));
+                goodIds = setdiff(allIds, ids);
+                pointsInModelFrame = pointsInModelFrame(:, goodIds);
+
+
+                [success, poseLidar] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 11, robotBodyPts);
+
+                %step 3: new pest from pest and plid
+                k = 0.25; % <= 1/4
+                newTh = poseEst.th() + k*(poseLidar.th() - poseEst.th());
+                newTh = atan2(sin(newTh),cos(newTh));
+                newX = poseEst.x() + k*(poseLidar.x()-poseEst.x());
+                newY = poseEst.y() + k*(poseLidar.y()-poseEst.y());
+                obj.lidarX = [obj.lidarX poseLidar.x()];
+                obj.lidarY = [obj.lidarY poseLidar.y()];
+                poseEst = pose(newX,newY,newTh);
+
+                    %obj.driver.drive(obj.robot, 2.0);
             end
-            pointsInModelFrame = [xArr ; yArr; wArr];
-            ids = obj.localizer.throwOutliers(poseEst, pointsInModelFrame);
-
-            allIds = linspace(1, length(pointsInModelFrame), length(pointsInModelFrame));
-            goodIds = setdiff(allIds, ids);
-            pointsInModelFrame = pointsInModelFrame(:, goodIds);
-
-
-            [success, poseLidar] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 15, robotBodyPts);
-
-            %step 3: new pest from pest and plid
-            k = 0.25; % <= 1/4
-            newTh = poseEst.th() + k*(poseLidar.th() - poseEst.th());
-            newTh = atan2(sin(newTh),cos(newTh));
-            newX = poseEst.x() + k*(poseLidar.x()-poseEst.x());
-            newY = poseEst.y() + k*(poseLidar.y()-poseEst.y());
-
-            poseEst = pose(newX,newY,newTh);
-
-                %obj.driver.drive(obj.robot, 2.0);
         end
             
         
@@ -166,15 +178,18 @@ classdef Lab11
         
         function executeTrajectories(obj)
             obj.startPose = [0.6096;0.6096;pi()/2];
+            obj.estRobot.x = 0.6096; obj.estRobot.y = 0.6096; obj.estRobot.theta = pi()/2;
             %xf1 = 0.9144; yf1 = 0; thf1 = pi;
             xf1 = 0.3048; yf1 = 0.9144; thf1 = pi()/2.0;
             obj.executeTrajectoryToAbsPose(xf1, yf1, thf1, 0.2, 1, 1, 1);
             obj.startPose = [xf1; yf1; thf1];
+            obj.estRobot.x = xf1; obj.estRobot.y = yf1; obj.estRobot.theta = thf1;
             pause(2);
             xf2 = 0.9144; yf2 = 0.3048; thf2 = 0.0;
             obj.executeTrajectoryToAbsPose(xf2, yf2, thf2, 0.2, 1, 1, 2);
             pause(2);
             obj.startPose = [xf2; yf2; thf2];
+            obj.estRobot.x = xf2; obj.estRobot.y = yf2; obj.estRobot.theta = thf2;
             
             xf3 = 0.6096; yf3 = 0.6096; thf3 = pi()/2.0;
             xf3 = 1.2192; 
@@ -223,7 +238,7 @@ classdef Lab11
                 %figure(iteration); 
                 %figure(iteration + 20); 
                 %figure(iteration + 5);
-                figure(100 + iteration);
+                %figure(100 + iteration);
                 parms = trajectory.getParms();
                 %fprintf("in executeTrajectory before loop \n");
                 %lastI = size(trajectory.timeArray);
@@ -271,13 +286,16 @@ classdef Lab11
                         V = 0;
                         w = 0;
                     end
-                    newRangeImage = false;
+                    
                     if (preval2 ~= currval2)
                         newRangeImage = true;
                         %fprintf("before %d \n", toc(tStart));
-                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts);
+                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, false);
                         %fprintf("after %d \n", toc(tStart));
                         preval2 = currval2;
+                    else
+                       poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, true);
+                       newRangeImage = false;
                     end
                     
                     xEnc = newxEnc; yEnc = newyEnc;
@@ -310,7 +328,7 @@ classdef Lab11
                         mat(1,1) = cos(sensedTheta); mat(1,2) = -sin(sensedTheta); %mat(1,3) = x;
                         mat(2,1) = sin(sensedTheta); mat(2,2) = cos(sensedTheta); %mat(2,3) = y;
                         %mat(3,1) = 0.0; mat(3,2) = 0.0; mat(3, 3) = 1.0;
-                        kth = 1/0.4; %1/0.2;%tao;
+                        kth = 1/tao; %1/0.2;%tao;
                         rpr = (mat^-1)*[errorx; errory];
                         thekx = 1/tao;
                     
@@ -319,11 +337,8 @@ classdef Lab11
                         if (prevV < 0.05)
                             theky = 0;
                         end
-                        if (newRangeImage == true)
-                            up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
-                        else
-                            up = [0;0;0];
-                        end
+                        up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
+
                         if (abs(errorth) < pi()/2 && abs(errorx) < 0.5 && abs(errory) < 0.5)
                             up = [0;0;0];
                         end
@@ -365,8 +380,16 @@ classdef Lab11
                 newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
                 %fprintf("diffx %d, diffy %d\n", newxEnc-startX, newyEnc-startY);
                 tcurr = toc(tStart);
-                obj.estRobot.integrate(newxEnc, newyEnc, tcurr);
+                poseEst =obj.updateStateFromEncodersAtTime(newxEnc, newyEnc, tcurr, bodyPts, false);
+                sensedXArr = [sensedXArr x(poseEst)];
+                sensedYArr = [sensedYArr y(poseEst)];
+                
+%                 referenceXArr = [referenceXArr finalPose(1)];
+%                 referenceYArr = [referenceYArr finalPose(2)];
                 obj.robot.sendVelocity(0,0);
+                
+                
+                sqrt((referenceYArr(end) - x(poseEst))^2 + (referenceXArr(end) - y(poseEst))^2)
                 %pause(2);
 %                 if iteration ~= 1
 %                     hold on;
@@ -376,7 +399,7 @@ classdef Lab11
                 %legend("x", "y", "th");
 
 
-                figure(100 + iteration);
+                figure(100);
                 plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
                 title("Reference Trajectory versus the Sensed Trajectory");
                 xlabel('Position x (m)');
@@ -387,21 +410,30 @@ classdef Lab11
 %                 if iteration ~= 1
 %                     hold off;
 %                 end 
-                figure(iteration + 23);
-                plot(obj.tarr, obj.errorxarr, obj.tarr, obj.erroryarr, obj.tarr, obj.errortharr);
-                xlabel('time');
-                ylabel('error');
-                legend("x", "y", "th");
-                title("Trajectory" + iteration);
+%                 figure(iteration + 23);
+%                 plot(obj.tarr, obj.errorxarr, obj.tarr, obj.erroryarr, obj.tarr, obj.errortharr);
+%                 xlabel('time');
+%                 ylabel('error');
+%                 legend("x", "y", "th");
+%                 title("Trajectory" + iteration);
+%                 
                 
-                figure(13 + iteration);
-                plot(obj.tarr, referenceThArr, obj.tarr,sensedThArr); 
-                title("THETAAA");
-                xlabel('Position x (m)');
-                ylabel('Position y (m)');
-                %fprintf("error %d \n", sqrt((obj.sensedX-referencePose(1))^2 + (obj.sensedY-referencePose(2))^2));
-                legend("reference", "sensed");
-                hold on;
+                figure(63);
+                plot(obj.lidarX, obj.lidarY, obj.odometryX, obj.odometryY);
+                xlabel('x');
+                ylabel('y');
+                legend("lidar", "odometry");
+                title("Lidar vs Odometry " + iteration);
+%                 
+                
+%                 figure(13 + iteration);
+%                 plot(obj.tarr, referenceThArr, obj.tarr,sensedThArr); 
+%                 title("THETAAA");
+%                 xlabel('Position x (m)');
+%                 ylabel('Position y (m)');
+%                 %fprintf("error %d \n", sqrt((obj.sensedX-referencePose(1))^2 + (obj.sensedY-referencePose(2))^2));
+%                 legend("reference", "sensed");
+%                 hold on;
                 
                 %figure(iteration + 5);
                 %plot(obj.tarr, obj.varr, obj.tarr, obj.warr);

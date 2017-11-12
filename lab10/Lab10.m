@@ -29,7 +29,7 @@ classdef Lab10
             lines_p2 = [p2 p3];
             obj.localizer = lineMapLocalizer(lines_p1, lines_p2, 0.3, 0.004, 0.0005);
             obj.driver = robotKeypressDriver(gcf);
-            obj.robot = raspbot('Raspbot-24');
+            obj.robot = raspbot('Raspbot-37');
             pause(2);
             obj.lab10();
             
@@ -60,8 +60,10 @@ classdef Lab10
                 goodIds = setdiff(allIds, ids);
                 pointsInModelFrame = pointsInModelFrame(:, goodIds);
                 [success, currPose] = obj.localizer.refinePose(currPose, pointsInModelFrame, 15, robotBodyPts);
-                fprintf("pose %d, %d, %d\n", currPose.x(),currPose.y(), currPose.th());
-                obj.driver.drive(obj.robot, 2.0);
+                %fprintf("pose %d, %d, %d\n", currPose.x(),currPose.y(), currPose.th());
+                %obj.robot.sendVelocity(.04, .04);
+                obj.robot.sendVelocity(.0212, .02);
+                pause(0.2);
             end
         end
         
