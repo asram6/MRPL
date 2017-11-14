@@ -2,10 +2,18 @@ classdef Lab11 < handle
     properties
         localizer; driver; robot; estRobot; startPose; trajectoryObj;
         errorxarr; erroryarr ; errortharr; varr; warr; tarr; 
-        odometryX;odometryY; lidarX; lidarY;
+        odometryX;odometryY; lidarX; lidarY; sensedX; sensedY; sensedTh;
     end
     
     methods
+       	function mat = aToB(obj, pose)
+            % Returns the homogeneous transform that converts coordinates from
+            % the a frame to the b frame.
+
+            bTa = bToA(obj, pose);
+
+            mat = bTa^-1;
+        end
         
         function [ x, y, th] = irToXy( obj, i, r )
                 % irToXy finds position and bearing of a range pixel endpoint
@@ -168,9 +176,14 @@ classdef Lab11 < handle
             % Execute a trajectory using state estimator as feedback      
             % Plan the trajectory. The terminal pose is specifie      
             % in world coordinates (not start relative). 
-            obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(-xfa+obj.startPose(1), ...
-                yfa-obj.startPose(2),...
-                thfa-obj.startPose(3), sgn);
+            poseG = [xfa,yfa,thfa];
+            poseR = obj.startPose;
+            referencePose = obj.matToPoseVec(inv(obj.bToA(poseR))*obj.bToA(poseG));
+            fprintf("refPose: %d %d %d\n", referencePose(1),referencePose(2),referencePose(3));
+            fprintf("startPose: %d %d %d\n", poseR(1),poseR(2),poseR(3));
+            obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(referencePose(1), ... %-xfa+obj.startPose(1), ...
+                referencePose(2), ... %yfa-obj.startPose(2)
+                referencePose(3), sgn); %thfa-obj.startPose(3), sgn);
             obj.trajectoryObj.planVelocities(0.2);%0.2);
             obj.executeTrajectory(iteration);
         end
@@ -182,17 +195,19 @@ classdef Lab11 < handle
             %xf1 = 0.9144; yf1 = 0; thf1 = pi;
             xf1 = 0.3048; yf1 = 0.9144; thf1 = pi()/2.0;
             obj.executeTrajectoryToAbsPose(xf1, yf1, thf1, 0.2, 1, 1, 1);
-            obj.startPose = [xf1; yf1; thf1];
-            obj.estRobot.x = xf1; obj.estRobot.y = yf1; obj.estRobot.theta = thf1;
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+            %obj.startPose = [xf1; yf1; thf1];
+            %obj.estRobot.x = xf1; obj.estRobot.y = yf1; obj.estRobot.theta = thf1;
             pause(2);
             xf2 = 0.9144; yf2 = 0.3048; thf2 = 0.0;
             obj.executeTrajectoryToAbsPose(xf2, yf2, thf2, 0.2, 1, 1, 2);
             pause(2);
-            obj.startPose = [xf2; yf2; thf2];
-            obj.estRobot.x = xf2; obj.estRobot.y = yf2; obj.estRobot.theta = thf2;
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+            %obj.startPose = [xf2; yf2; thf2];
+            %obj.estRobot.x = xf2; obj.estRobot.y = yf2; obj.estRobot.theta = thf2;
             
             xf3 = 0.6096; yf3 = 0.6096; thf3 = pi()/2.0;
-            xf3 = 1.2192; 
+            %xf3 = 1.2192; 
             obj.executeTrajectoryToAbsPose(xf3, yf3, thf3, 0.2, 1, 1, 3);
             pause(2);
         end
@@ -383,6 +398,9 @@ classdef Lab11 < handle
                 poseEst =obj.updateStateFromEncodersAtTime(newxEnc, newyEnc, tcurr, bodyPts, false);
                 sensedXArr = [sensedXArr x(poseEst)];
                 sensedYArr = [sensedYArr y(poseEst)];
+                obj.sensedX = x(poseEst);
+                obj.sensedY = y(poseEst);
+                obj.sensedTh = th(poseEst);
                 
 %                 referenceXArr = [referenceXArr finalPose(1)];
 %                 referenceYArr = [referenceYArr finalPose(2)];
