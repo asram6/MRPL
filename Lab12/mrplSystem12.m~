@@ -53,7 +53,7 @@ classdef mrplSystem12 < handle
             obj.estRobot = simRobot1(encoderX, encoderY);
             obj.robot.startLaser();
             pause(2);
-            obj.run(); 
+            obj.executeTrajectories(); 
         end
         
         function poseEst = updateStateFromEncodersAtTime(obj,newx,newy,tcurr, bodyPts, flag)
@@ -139,13 +139,6 @@ classdef mrplSystem12 < handle
            pause(0.1);
         end
         
-        function run(obj)
-            [found, palletPose] = obj.exerciseOne();
-            if found
-                obj.pickDropObject(palletPose);
-            end
-        end
-        
         function pickDropObject(obj, absPose)
             Tro = obj.absToRel(absPose);
             offset = -0.14;
@@ -162,14 +155,13 @@ classdef mrplSystem12 < handle
             vmax = 0.2;
             obj.executeTrajectoryToAbsPose(absAcqPose(1),absAcqPose(2),absAcqPose(3),vmax,1,0,1);
             
-            %[found, palletPose] = obj.exerciseOne();
             %laser
             
             %pickup
             
         end
         
-        function [found, palletPose] = exerciseOne(obj)
+        function found = exerciseOne(obj)
             obj.robot.startLaser();
             pause(4);
             ranges = obj.robot.laser.LatestMessage.Ranges;           
@@ -186,13 +178,23 @@ classdef mrplSystem12 < handle
                    xArr = [xArr x1]; yArr = [yArr y1];
             end
             offset = -0.14; %raise if doing two measurements
-            [found, palletPose] = obj.findLineCandidate(ranges, xArr, yArr, offset);
+            found = obj.findLineCandidate(ranges, xArr, yArr, offset);
             scatter(xArr, yArr, 'g');
             %obj.robot.stopLaser();
             pause(1);
+            
+            if found
+                %obj.robot.stopLaser();  
+                obj.robot.sendVelocity(.1,.1);
+                pause(.6);
+                obj.robot.sendVelocity(0,0);
+                pause(1);
+                obj.robot.forksUp();
+                pause(1);
+            end
         end
         
-        function [found, palletPose] = findLineCandidate(obj, ranges, xArr, yArr, offset)
+        function found = findLineCandidate(obj, ranges, xArr, yArr, offset)
             scatter(xArr, yArr, 'g');
             centroidXFinal = 0; centroidYFinal = 0; orientationFinal = 0; found = false;
             hold on;
@@ -272,7 +274,7 @@ classdef mrplSystem12 < handle
             if (found)
                 palletPose = [centroidXFinal, centroidYFinal, orientation];
             else
-                palletPose = [0, 0, 0];  %THIS MIGHT BE WRONGGGGGG!!!!
+                palletPose = [0, 0, 0];  %THIS MIGHT BE WRO
             end
             fprintf("count %d\n", count);
         end
@@ -294,6 +296,29 @@ classdef mrplSystem12 < handle
             obj.executeTrajectory(iteration);
         end
         
+        
+        function executeTrajectories(obj)
+            obj.startPose = [0.6096;0.6096;pi()/2];
+            obj.estRobot.x = 0.6096; obj.estRobot.y = 0.6096; obj.estRobot.theta = pi()/2;
+            %xf1 = 0.9144; yf1 = 0; thf1 = pi;
+            xf1 = 0.3048; yf1 = 0.9144; thf1 = pi()/2.0;
+            obj.executeTrajectoryToAbsPose(xf1, yf1, thf1, 0.2, 1, 1, 1);
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+            %obj.startPose = [xf1; yf1; thf1];
+            %obj.estRobot.x = xf1; obj.estRobot.y = yf1; obj.estRobot.theta = thf1;
+            pause(2);
+            xf2 = 0.9144; yf2 = 0.3048; thf2 = 0.0;
+            obj.executeTrajectoryToAbsPose(xf2, yf2, thf2, 0.2, 1, 1, 2);
+            pause(2);
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+            %obj.startPose = [xf2; yf2; thf2];
+            %obj.estRobot.x = xf2; obj.estRobot.y = yf2; obj.estRobot.theta = thf2;
+            
+            xf3 = 0.6096; yf3 = 0.6096; thf3 = pi()/2.0;
+            %xf3 = 1.2192; 
+            obj.executeTrajectoryToAbsPose(xf3, yf3, thf3, 0.2, 1, 1, 3);
+            pause(2);
+        end
         
         function mat = bToA(obj, pose)
             % Returns the homogeneous transform that converts coordinates from

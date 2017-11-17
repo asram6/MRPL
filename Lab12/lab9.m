@@ -36,11 +36,15 @@ classdef lab9 < handle
             V = 0;
             tstart = tic;
             while (toc(tstart) < seconds)
+                fprintf("%d \n", toc(tstart));
                 [vl, vr]  = robotModel.VwTovlvr(V, w);
                 [vl, vr] = robotModel.limitWheelVelocities([vl, vr]); 
-                obj.robot.sendVelocity(vl, vr);
+                robot.sendVelocity(vl, vr);
+                fprintf("%d %d \n", vl, vr);
                 pause(0.5);
             end
+            robot.sendVelocity(0, 0);
+           pause(0.1);
         end
         
         function executeTrajectoryLab8(obj, thepose)
