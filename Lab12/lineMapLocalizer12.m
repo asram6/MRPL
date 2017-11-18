@@ -20,7 +20,7 @@ classdef lineMapLocalizer12 < handle
     
     methods
     
-        function obj = lineMapLocalizer11(lines_p1,lines_p2,gain,errThresh,gradThresh)            
+        function obj = lineMapLocalizer12(lines_p1,lines_p2,gain,errThresh,gradThresh)            
             % create a lineMapLocalizer           
             obj.lines_p1 = lines_p1;       
             obj.lines_p2 = lines_p2;     
@@ -129,16 +129,16 @@ classdef lineMapLocalizer12 < handle
                     %fprintf("here\n");
                     %worldBodyPts
                     x = [0 0; 0 1.2192]; y = [0 0; 1.2192 0];
-                    %kh = plot(obj.lines_p1, obj.lines_p2, "b");
-                    %kh = plot(x, y, "b");
-                    %axis([-1, 2, -1, 2]); 
-                    %figure(50);
-                    %hold on
-                    %ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:),'k');
-                    %hold on
-                    %figure(50);
-                    %kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:),'r');
-                    %hold off
+                    kh = plot(obj.lines_p1, obj.lines_p2);
+                    kh = plot(x, y);
+                    axis([-1, 2, -1, 2]); 
+                    figure(50);
+                    hold on
+                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+                    hold on
+                    figure(50);
+                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+                    hold off
                     pause(0.001);
                     currIteration = currIteration + 1;
                    
