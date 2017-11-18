@@ -129,11 +129,9 @@ classdef mrplSystem12 < handle
             V = 0;
             tstart = tic;
             while (toc(tstart) < seconds)
-                fprintf("%d \n", toc(tstart));
                 [vl, vr]  = robotModel.VwTovlvr(V, w);
                 [vl, vr] = robotModel.limitWheelVelocities([vl, vr]); 
                 obj.robot.sendVelocity(vl, vr);
-                fprintf("%d %d \n", vl, vr);
                 pause(0.5);
             end
             obj.robot.sendVelocity(0, 0);
@@ -143,7 +141,7 @@ classdef mrplSystem12 < handle
         function executeTrajectoryToRelativePose(obj, x, y, th, sgn, iteration)
             fprintf("x %d   y %d   th %d \n", x, y, th);
             obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(x, y, th, sgn);
-            obj.trajectoryObj.planVelocities(0.2);
+            obj.trajectoryObj.planVelocities(0.1);
             obj.executeTrajectory(iteration);
         end
         
@@ -174,22 +172,51 @@ classdef mrplSystem12 < handle
             Tog = [offset, 0, 0];
             pickUpPose = obj.matToPoseVec(obj.bToA(Tro)*obj.bToA(Tog));
             %obj.executeTrajectoryToRelativePose(pickUpPose);
-            fprintf("IN PICK UP POSE %d \n", atan2(pickUpPose(2), pickUpPose(1)));
-            fprintf("IN PICK UP POSE rel dest %d \n", atan2(relDestPose(2), relDestPose(1)));
-            fprintf("sendsed %d %d %d  \n", obj.sensedX, obj.sensedY, obj.sensedTh);
+%             fprintf("IN PICK UP POSE %d \n", atan2(pickUpPose(2), pickUpPose(1)));
+%             fprintf("IN PICK UP POSE rel dest %d \n", atan2(relDestPose(2), relDestPose(1)));
+%             fprintf("sendsed %d %d %d  \n", obj.sensedX, obj.sensedY, obj.sensedTh);
+%             fprintf("relDest %d %d %d  \n", relDestPose(1), relDestPose(2), relDestPose(3));
             absPick = obj.relToAbs(pickUpPose);
-            fprintf("abs pickup %d %d %d \n", absPick(1),absPick(2),absPick(3));
+%             fprintf("abs pickup %d %d %d \n", absPick(1),absPick(2),absPick(3));
             %obj.relToAbs(pickUpPose);
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+            
+            %obj.executeTrajectoryToRelativePose(relDestPose(1) - 0.06, relDestPose(2), relDestPose(3), 1, 1);
+            
             obj.turnRelAngle(atan2(relDestPose(2), relDestPose(1)));
-            fprintf("HEY %d \n", pickUpPose(1) - 0.06);
-            obj.moveRelDist(pickUpPose(1) - 0.06);
+            fprintf("HEY %d \n", pickUpPose(1));
+            obj.moveRelDist(pickUpPose(1));
             obj.robot.forksUp();
+            pause(0.2);
+        end
+        
+        function goToDropPose(obj, absDestPose)
+            offset = -0.07;
+            relDestPose = obj.absToRel(absDestPose);
+            Tro = relDestPose;
+            Tog = [offset, 0, 0];
+            dropPose = obj.matToPoseVec(obj.bToA(Tro)*obj.bToA(Tog));
+            absDropPose = obj.relToAbs(dropPose);
+            
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+            angle = absDestPose(3) - obj.sensedTh;
+            fprintf("absDestPose %d   relDesetPose %d   sensedTh %d \n",  absDestPose(3), relDestPose(3), obj.sensedTh);
+            fprintf("angle %d  \n", atan2(sin(angle), cos(angle)));
+            obj.turnRelAngle(atan2(sin(angle), cos(angle)));
+            
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+            relDestPose = obj.absToRel(absDestPose);
+            
+            fprintf("rel drop pose %d %d %d \n", relDestPose(1), relDestPose(2), relDestPose(3));
+            fprintf("abs drop pose %d %d %d \n", absDropPose(1), absDropPose(2), absDropPose(3));
+            obj.executeTrajectoryToAbsPose(absDropPose(1),absDropPose(2),absDropPose(3),0.1, 1, 1, 1);
+            obj.robot.forksDown();
             pause(0.2);
         end
         
         function pickDropObject(obj, absPickPose, absDropPose)
             Tro = obj.absToRel(absPickPose);
-            offset = -0.14;
+            offset = -0.24;%-0.14;
             Tog = [offset, 0, 0];
             
             acqPose = obj.matToPoseVec(obj.bToA(Tro)*obj.bToA(Tog)); %acquisition pose, can offset more
@@ -200,13 +227,15 @@ classdef mrplSystem12 < handle
                 obj.turnRelAngle(turnAngle, 0); %test to see if negative
             end
             absAcqPose = obj.relToAbs(acqPose);
-            vmax = 0.2;
+            vmax = 0.1;
             obj.executeTrajectoryToAbsPose(absAcqPose(1),absAcqPose(2),absAcqPose(3),vmax,1,0,1);
             
             [found, palletPose] = obj.getPalletPose();  %palletPose is relative
             if found
                 obj.goToPickUpPose(palletPose);
             end
+            
+            obj.goToDropPose(absDropPose);
             %laser
             
             
@@ -364,7 +393,7 @@ classdef mrplSystem12 < handle
             % Plan the trajectory. The terminal pose is specifie      
             % in world coordinates (not start relative). 
             poseG = [xfa,yfa,thfa];
-            poseR = obj.startPose;
+            poseR = [obj.sensedX, obj.sensedY, obj.sensedTh]; %obj.startPose;
             referencePose = obj.matToPoseVec(inv(obj.bToA(poseR))*obj.bToA(poseG));
             obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(referencePose(1), ... %-xfa+obj.startPose(1), ...
                 referencePose(2), ... %yfa-obj.startPose(2)
@@ -444,6 +473,7 @@ classdef mrplSystem12 < handle
                 sensedThArr = [];
                 pause(1);
                 poseEst = pose(obj.startPose(1), obj.startPose(2), obj.startPose(3));
+                fprintf("poseest %d %d %d \n", x(poseEst), y(poseEst), th(poseEst));
                 newRangeImage = false;
                 bodyPts = robotModel.bodyGraph();
                 while (tcurr < lastT + tDelay) % || (errorth) > 0.02)
