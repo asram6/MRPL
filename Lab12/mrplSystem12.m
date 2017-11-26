@@ -43,7 +43,7 @@ classdef mrplSystem12 < handle
             
             obj.localizer = lineMapLocalizer12(lines_p1, lines_p2, 0.3, 0.01, 0.0005);
             
-            obj.robot = raspbot('Raspbot-30');
+            obj.robot = raspbot('Raspbot-36');
             pause(2);
             
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
@@ -67,7 +67,9 @@ classdef mrplSystem12 < handle
             poseEst = pose(obj.estRobot.x, obj.estRobot.y, obj.estRobot.theta);
             obj.odometryX = [obj.odometryX, obj.estRobot.x];
             obj.odometryY = [obj.odometryY, obj.estRobot.y];
-
+            newX = obj.estRobot.x; newY = obj.estRobot.y; newTh = obj.estRobot.theta;
+            
+            
             if (~flag)
                 %step 2: lidar pose 
                 robotBodyPts = poseEst.bToA()*bodyPts;
@@ -101,8 +103,8 @@ classdef mrplSystem12 < handle
                 obj.lidarX = [obj.lidarX poseLidar.x()];
                 obj.lidarY = [obj.lidarY poseLidar.y()];
                 poseEst = pose(newX,newY,newTh);
-                obj.sensedX = newX; obj.sensedY = newY; obj.sensedTh = newTh;
             end
+            obj.sensedX = newX; obj.sensedY = newY; obj.sensedTh = newTh;
         end
             
        
@@ -115,7 +117,7 @@ classdef mrplSystem12 < handle
             obj.updateStateFromEncodersAtTime(newxEnc, newyEnc, tcurr, bodyPts, false);
         end
             
-        function moveRelDist(obj,dist, doControlPlotting)
+        function moveRelDist(obj,dist, doControlplotting)
             % move forward or backward a specified distance and stop.
             % make sure the velocity is such that the distance will take at
             % least a second
@@ -128,7 +130,7 @@ classdef mrplSystem12 < handle
             %obj.startPose = [abs(dist); 0; 0];
         end
         
-        function turnRelAngle(obj, angle, doControlPlotting)
+        function turnRelAngle(obj, angle, doControlplotting)
             % make sure the velocity is such that the distance will take at
             % least a secondFill me in
             % move a distance forward or backward
@@ -153,7 +155,7 @@ classdef mrplSystem12 < handle
         end
         
         function executeTrajectoryToRelativePose(obj, x, y, th, sgn, iteration)
-            fprintf("x %d   y %d   th %d \n", x, y, th);
+            %fprintf("x %d   y %d   th %d \n", x, y, th);
             obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(x, y, th, sgn);
             obj.trajectoryObj.planVelocities(0.1);
             obj.executeTrajectory(iteration);
@@ -198,6 +200,7 @@ classdef mrplSystem12 < handle
             while (~isempty(pickPoses)) 
                 [pickPose, pickPoses] = obj.getClosestPose(pickPoses);
                 obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
+                fprintf("pick up %d %d %d", pickPose(1),pickPose(2),pickPose(3));
                 obj.pickDropObject(pickPose);
             end
         end
@@ -234,16 +237,15 @@ classdef mrplSystem12 < handle
             absDropPose = obj.relToAbs(dropPose);
             
             obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
-            angle = obj.sensedTh - absDestPose(3);
-            fprintf("absDestPose %d   relDesetPose %d   sensedTh %d \n",  absDestPose(3), relDestPose(3), obj.sensedTh);
-            fprintf("angle %d  \n", atan2(sin(angle), cos(angle)));
-            obj.turnRelAngle(atan2(sin(angle), cos(angle)));
+            
+            angle = atan2(relDestPose(2), relDestPose(1));
+            obj.turnRelAngle(angle);
                         
             obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
             relDestPose = obj.absToRel(absDestPose);
             
-            fprintf("rel drop pose %d %d %d \n", relDestPose(1), relDestPose(2), relDestPose(3));
-            fprintf("abs drop pose %d %d %d \n", absDropPose(1), absDropPose(2), absDropPose(3));
+            %fprintf("rel drop pose %d %d %d \n", relDestPose(1), relDestPose(2), relDestPose(3));
+            %fprintf("abs drop pose %d %d %d \n", absDropPose(1), absDropPose(2), absDropPose(3));
             obj.executeTrajectoryToAbsPose(absDropPose(1),absDropPose(2),absDropPose(3),0.1, 1, 1, 1);
             obj.robot.forksDown();
             pause(0.2);
@@ -264,15 +266,16 @@ classdef mrplSystem12 < handle
             %fprintf("acq pose %d %d %d \n", acqPose(1), acqPose(2), acqPose(3));
             
             %currPose = [obj.sensedX, obj.sensedY, obj.sensedTh];
-            turnAngle = acqPose(3);
+            turnAngle = atan2(acqPose(2), acqPose(1))
+            %turnAngle = acqPose(3);
             turnThreshold = pi/8;
             if (turnAngle > turnThreshold) %can change angle threshold
                 obj.turnRelAngle(turnAngle, 0); %test to see if negative
             end
             relAcqPose = obj.absToRel(absAcqPose);
-            fprintf("current pose %d %d %d \n", obj.sensedX, obj.sensedY, obj.sensedTh);
-            fprintf("rel acq pose %d %d %d \n", relAcqPose(1), relAcqPose(2), relAcqPose(3));
-            fprintf("abs acq pose %d %d %d \n", absAcqPose(1), absAcqPose(2), absAcqPose(3));
+            %fprintf("current pose %d %d %d \n", obj.sensedX, obj.sensedY, obj.sensedTh);
+            %fprintf("rel acq pose %d %d %d \n", relAcqPose(1), relAcqPose(2), relAcqPose(3));
+            %fprintf("abs acq pose %d %d %d \n", absAcqPose(1), absAcqPose(2), absAcqPose(3));
             vmax = 0.1;
             obj.executeTrajectoryToAbsPose(absAcqPose(1),absAcqPose(2),absAcqPose(3),vmax,1,0,1);
             
@@ -282,6 +285,7 @@ classdef mrplSystem12 < handle
                 pause(.5);
                 
                 [absDropPose, obj.dropPoses] = obj.getClosestPose(obj.dropPoses);
+                fprintf("drop off %d %d %d", absDropPose(1),absDropPose(2),absDropPose(3));
                 obj.dropOffPallet(absDropPose);
             end
             
@@ -406,12 +410,12 @@ classdef mrplSystem12 < handle
                         orientationFinal = orientation;
                         
                         if (((orientation < 0)))% && (centroidX > 0)) || ((orientation >= 0) && (centroidX <= 0)))
-                            plot([leftX, rightX], [bottomY, topY]);
+                            %plot([leftX, rightX], [bottomY, topY]);
                         else
-                            plot([leftX, rightX], [topY, bottomY]);
+                            %plot([leftX, rightX], [topY, bottomY]);
                         end
                         hold on;
-                        plot(centroidX, centroidY, 'r*');
+                        %plot(centroidX, centroidY, 'r*');
 
                         hold on;
                     end
@@ -426,7 +430,7 @@ classdef mrplSystem12 < handle
             else
                 palletPose = [0, 0, 0];  %THIS MIGHT BE WRONGGGGGG!!!!
             end
-            fprintf("count %d\n", count);
+            %fprintf("count %d\n", count);
         end
          
         
@@ -489,7 +493,7 @@ classdef mrplSystem12 < handle
                 xEnc = obj.robot.encoders.LatestMessage.Vector.X;
                 yEnc = obj.robot.encoders.LatestMessage.Vector.Y;
                 
-                referenceXArr = []; referenceYArr = []; sensedXArr = []; sensedYArr = [];
+                referenceXArr = []; referenceYArr = []; sensedXArr = []; sensedYArr = [];sensedThArr = [];
                 finalPose = trajectory.getFinalPose();
                 
                 parms = trajectory.getParms();
@@ -549,6 +553,7 @@ classdef mrplSystem12 < handle
                     xEnc = newxEnc; yEnc = newyEnc;
                     sensedXArr = [sensedXArr x(poseEst)];
                     sensedYArr = [sensedYArr y(poseEst)];
+                    %sensedThArr = [sensedThArr th(poseEst)];
                    
                     
                     if ((tcurr >= tDelay) && (tcurr <= lastT + tDelay))
@@ -562,9 +567,10 @@ classdef mrplSystem12 < handle
                         errory = referencePose(2)-y(poseEst);
                         
                         refTh = referencePose(3);
-                        refTh1 = mod(refTh,(2*pi));
-                        sensedTheta = mod(th(poseEst), (2*pi));
-                        errorth =  refTh1 - sensedTheta;
+                        refTh = atan2(sin(refTh),cos(refTh));
+                        sensedTheta = th(poseEst);
+                        sensedTheta = atan2(sin(sensedTheta), cos(sensedTheta));
+                        errorth =  refTh - sensedTheta;
                         errorth = atan2(sin(errorth),cos(errorth));
                         
                         obj.errorxarr = [obj.errorxarr errorx];
@@ -587,9 +593,9 @@ classdef mrplSystem12 < handle
                         end
                         up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
 
-                        if (abs(errorth) < pi()/200 && abs(errorx) < 0.005 && abs(errory) < 0.005)
+                        %if (abs(errorth) < pi()/500 && abs(errory) < 0.005)
                             up = [0;0;0];
-                        end
+                        %end
                         V = prevV + up(1);
                     
                         %prevW = atan2(sin(prevW), cos(prevW));
@@ -627,28 +633,38 @@ classdef mrplSystem12 < handle
                 poseEst =obj.updateStateFromEncodersAtTime(newxEnc, newyEnc, tcurr, bodyPts, false);
                 sensedXArr = [sensedXArr x(poseEst)];
                 sensedYArr = [sensedYArr y(poseEst)];
+                sensedThArr = [sensedThArr th(poseEst)];
                 obj.sensedX = x(poseEst);
                 obj.sensedY = y(poseEst);
                 obj.sensedTh = th(poseEst);
-                
+                tArr = [obj.tarr tcurr];
+                referenceThArr = [referenceThArr 0];
+                errorThArr = [obj.errortharr 0];
                 obj.robot.sendVelocity(0,0);
                 
-                fprintf("1 - %d %d \n", referenceYArr(end), x(poseEst));
-                fprintf("2 - %d %d \n", referenceXArr(end), y(poseEst));
+                %fprintf("1 - %d %d \n", referenceYArr(end), x(poseEst));
+                %fprintf("2 - %d %d \n", referenceXArr(end), y(poseEst));
                 sqrt((referenceYArr(end) - x(poseEst))^2 + (referenceXArr(end) - y(poseEst))^2)
 
 
                 figure(100);
-                plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
+                %plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
                 title("Reference Trajectory versus the Sensed Trajectory");
                 xlabel('Position x (m)');
                 ylabel('Position y (m)');
-                %fprintf("error %d \n", sqrt((obj.sensedX-referencePose(1))^2 + (obj.sensedY-referencePose(2))^2));
                 legend("reference", "sensed");
                 hold on;
                 
+                figure(40);
+                %plot(tArr, referenceThArr, tArr, errorThArr, tArr, sensedThArr); 
+                title("THETA errors");
+                xlabel('Position x (m)');
+                ylabel('Position y (m)');
+                legend("reference", "error", "sensed");
+                hold on;
+                
                 figure(63);
-                plot(obj.lidarX, obj.lidarY, obj.odometryX, obj.odometryY);
+                %plot(obj.lidarX, obj.lidarY, obj.odometryX, obj.odometryY);
                 xlabel('x');
                 ylabel('y');
                 legend("lidar", "odometry");
