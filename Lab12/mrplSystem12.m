@@ -156,6 +156,7 @@ classdef mrplSystem12 < handle
         
         function executeTrajectoryToRelativePose(obj, x, y, th, sgn, iteration)
             %fprintf("x %d   y %d   th %d \n", x, y, th);
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
             obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(x, y, th, sgn);
             obj.trajectoryObj.planVelocities(0.1);
             obj.executeTrajectory(iteration);
@@ -222,8 +223,9 @@ classdef mrplSystem12 < handle
             
             turnAngle = atan2(relDestPose(2), relDestPose(1));
             obj.turnRelAngle(turnAngle, 0); %test to see if negative
-            %fprintf("HEY %d \n", pickUpPose(1));
-            obj.moveRelDist(pickUpPose(1));
+            fprintf("HEY %d \n", pickUpPose(1));
+            %obj.moveRelDist(pickUpPose(1));
+            obj.executeTrajectoryToAbsPose(absPick(1), absPick(2), absPick(3), 0.1, 1, 1, 1);
             obj.robot.forksUp();
             pause(0.2);
         end
@@ -258,7 +260,7 @@ classdef mrplSystem12 < handle
             %fprintf("abs pick pose %d %d %d \n", absPickPose(1), absPickPose(2), absPickPose(3));
             %fprintf("tro pose %d %d %d \n", Tro(1), Tro(2), Tro(3));
 
-            offset = -0.24;
+            offset = -0.4; %-0.24;
             Tog = [offset, 0, 0];
             
             acqPose = obj.matToPoseVec(obj.bToA(Tro)*obj.bToA(Tog)); %acquisition pose, can offset more
@@ -272,17 +274,15 @@ classdef mrplSystem12 < handle
             if (turnAngle > turnThreshold) %can change angle threshold
                 obj.turnRelAngle(turnAngle, 0); %test to see if negative
             end
-            relAcqPose = obj.absToRel(absAcqPose);
             %fprintf("current pose %d %d %d \n", obj.sensedX, obj.sensedY, obj.sensedTh);
-            %fprintf("rel acq pose %d %d %d \n", relAcqPose(1), relAcqPose(2), relAcqPose(3));
-            %fprintf("abs acq pose %d %d %d \n", absAcqPose(1), absAcqPose(2), absAcqPose(3));
+            fprintf("abs acq pose %d %d %d \n", absAcqPose(1), absAcqPose(2), absAcqPose(3));
             vmax = 0.1;
             obj.executeTrajectoryToAbsPose(absAcqPose(1),absAcqPose(2),absAcqPose(3),vmax,1,0,1);
             
             [found, palletPose] = obj.getPalletPose();  %palletPose is relative
             if found
                 obj.pickUpPallet(palletPose);
-                pause(.5);
+                %pause(.5);
                 
                 [absDropPose, obj.dropPoses] = obj.getClosestPose(obj.dropPoses);
                 fprintf("drop off %d %d %d", absDropPose(1),absDropPose(2),absDropPose(3));
@@ -292,8 +292,6 @@ classdef mrplSystem12 < handle
         end
         
         function [found, palletPose] = getPalletPose(obj)
-            obj.robot.startLaser();
-            pause(4);
             ranges = obj.robot.laser.LatestMessage.Ranges;           
             xArr = []; yArr = [];
             % remove all points with bad range
@@ -310,7 +308,7 @@ classdef mrplSystem12 < handle
             [found, palletPose] = obj.findLineCandidate(ranges, xArr, yArr, offset);
             scatter(xArr, yArr, 'g');
             %obj.robot.stopLaser();
-            pause(1);
+            %pause(1);
         end
         
         function [found, palletPose] = exerciseOne(obj)
@@ -361,6 +359,11 @@ classdef mrplSystem12 < handle
                 if x < 0
                     continue;
                 end
+                
+                if ~(y < 0.1 && y > -0.1)   %this is trying to only get wedge in front of us (and not wall)
+                    fprintf("in find line candidate %d \n", y);
+                    continue;
+                end
                 minDist = 4.0;
                 for j = 1:length(ranges)
                     otherX = xArr(j); otherY = yArr(j);
@@ -390,10 +393,11 @@ classdef mrplSystem12 < handle
                 lambda2 = eig(Inertia);
                 lambda = eig(Inertia);
                 
-                if (eig2(2) - lambda(2) < .00025)
+                if (eig2(2) - lambda(2) < .0005)
                     continue;
                 end
                 
+                diff = eig2(2) - lambda(2);
                 lambda = sqrt(lambda)*1000.0;
                 distanceThreshold = 0.01;
                 if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && (distance < minDistance + distanceThreshold))
@@ -401,6 +405,7 @@ classdef mrplSystem12 < handle
                     rightX = max(pointSetX); bottomY = min(pointSetY);
                     diagonal = sqrt((rightX - leftX)^2 + (bottomY - topY)^2);
                     if abs(diagonal - 0.127) <= 0.035
+                        fprintf("FOUND WHAT WE THINK IS NOT A WALL: eig = %d \n", diff);
                         found = true;
                         maxPoints = numPoints;
                         minDistance = distance;
@@ -440,6 +445,7 @@ classdef mrplSystem12 < handle
             % in world coordinates (not start relative). 
             poseG = [xfa,yfa,thfa];
             poseR = [obj.sensedX, obj.sensedY, obj.sensedTh]; %obj.startPose;
+            obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
             referencePose = obj.matToPoseVec(inv(obj.bToA(poseR))*obj.bToA(poseG));
             obj.trajectoryObj = cubicSpiralTrajectory.planTrajectory(referencePose(1), ... %-xfa+obj.startPose(1), ...
                 referencePose(2), ... %yfa-obj.startPose(2)
@@ -498,7 +504,7 @@ classdef mrplSystem12 < handle
                 
                 parms = trajectory.getParms();
                 lastT = trajectory.getTrajectoryDuration();
-                tao = 0.6;%0.4;%.27; %0.7;
+                tao = 0.4;%0.6;%0.4;%.27; %0.7;
                 prevV = 0;
                 error = 0;
                 errory = 0;
@@ -510,7 +516,7 @@ classdef mrplSystem12 < handle
                 obj.estRobot.tPrev = 0;
                 referenceThArr = [];
                 sensedThArr = [];
-                pause(1);
+                %pause(1);
                 
                 poseEst = pose(obj.sensedX, obj.sensedY, obj.sensedTh);
                 %fprintf("poseest %d %d %d \n", x(poseEst), y(poseEst), th(poseEst));
@@ -593,8 +599,12 @@ classdef mrplSystem12 < handle
                         end
                         up = [thekx*rpr(1); theky*rpr(2) + kth*errorth];
 
-                        %if (abs(errorth) < pi()/500 && abs(errory) < 0.005)
+                        %fprintf("errorth %d   errorx %d   errory %d \n", errorth, errorx, errory);
+                        %if (abs(errorth) < pi()/3 && abs(errorx) < 0.1 && abs(errory) < 0.1)
+                        %    fprintf("HERE\n");
                             up = [0;0;0];
+                        %else
+                        %    fprintf("errorth %d   errorx %d   errory %d \n", errorth, errorx, errory);
                         %end
                         V = prevV + up(1);
                     
@@ -644,31 +654,31 @@ classdef mrplSystem12 < handle
                 
                 %fprintf("1 - %d %d \n", referenceYArr(end), x(poseEst));
                 %fprintf("2 - %d %d \n", referenceXArr(end), y(poseEst));
-                sqrt((referenceYArr(end) - x(poseEst))^2 + (referenceXArr(end) - y(poseEst))^2)
+                %sqrt((referenceYArr(end) - x(poseEst))^2 + (referenceXArr(end) - y(poseEst))^2)
 
 
-                figure(100);
-                %plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
-                title("Reference Trajectory versus the Sensed Trajectory");
-                xlabel('Position x (m)');
-                ylabel('Position y (m)');
-                legend("reference", "sensed");
-                hold on;
+%                 figure(100);
+%                 %plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
+%                 title("Reference Trajectory versus the Sensed Trajectory");
+%                 xlabel('Position x (m)');
+%                 ylabel('Position y (m)');
+%                 legend("reference", "sensed");
+%                 hold on;
                 
-                figure(40);
-                %plot(tArr, referenceThArr, tArr, errorThArr, tArr, sensedThArr); 
-                title("THETA errors");
-                xlabel('Position x (m)');
-                ylabel('Position y (m)');
-                legend("reference", "error", "sensed");
-                hold on;
+%                 figure(40);
+%                 %plot(tArr, referenceThArr, tArr, errorThArr, tArr, sensedThArr); 
+%                 title("THETA errors");
+%                 xlabel('Position x (m)');
+%                 ylabel('Position y (m)');
+%                 legend("reference", "error", "sensed");
+%                 hold on;
                 
-                figure(63);
-                %plot(obj.lidarX, obj.lidarY, obj.odometryX, obj.odometryY);
-                xlabel('x');
-                ylabel('y');
-                legend("lidar", "odometry");
-                title("Lidar vs Odometry " + iteration);
+%                 figure(63);
+%                 %plot(obj.lidarX, obj.lidarY, obj.odometryX, obj.odometryY);
+%                 xlabel('x');
+%                 ylabel('y');
+%                 legend("lidar", "odometry");
+%                 title("Lidar vs Odometry " + iteration);
 %                 
         end
     end
