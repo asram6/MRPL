@@ -23,8 +23,7 @@ classdef mrplSystem12 < handle
                     %th1 = -5*(pi/360); %this needs 2 change
                    % thOffset = 0.0872665 - 0.0596773;
                     %thOffset = .05236; %%atan2(0.087,0.993)+;
-                    %thOffset = 0.07;
-                    thOffset = 0.03;
+                    thOffset = 0.07;
                     th = (i-1)*(pi/180)-thOffset;
                     if (th > pi)
                         th = th-2*pi;
@@ -322,16 +321,19 @@ classdef mrplSystem12 < handle
             %pause(1);
         end
         
-        function [Inertia, centroidX, centroidY, numPointsLab12, distanceLab12, Ixx, Ixy, Iyy] = getInertiaLab12(obj, pointSetX, pointSetY)
-            numPointsLab12 = length(pointSetX);
+        function [Inertia, centroidX, centroidY, numPoints, distance, Ixx, Ixy, Iyy] = getInertiaL(obj, pointSetX, pointSetY)
+            fprintf("in get inertia");
+            pointSetX
+            numPoints = length(pointSetX);
+            fprintf("in get inertia!!! %d\n", numPoints);
             centroidX = mean(pointSetX); centroidY = mean(pointSetY); 
-            distanceLab12 = sqrt(centroidX^2 + centroidY^2);
+            distance = sqrt(centroidX^2 + centroidY^2);
             pointSetXCloud = pointSetX - centroidX; pointSetYCloud = pointSetY - centroidY;
 
             Ixx = sum(pointSetXCloud.^2);
             Iyy = sum(pointSetYCloud.^2);
             Ixy = -1*sum(pointSetXCloud.*pointSetYCloud);
-            Inertia = [Ixx Ixy;Ixy Iyy] / numPointsLab12; % normalized
+            Inertia = [Ixx Ixy;Ixy Iyy] / numPoints; % normalized
         end
         
         function [found, palletPose] = findLineCandidate(obj, ranges, xArr, yArr, offset, relPickPose)
@@ -352,7 +354,7 @@ classdef mrplSystem12 < handle
                 distFromPickPose = sqrt(((x-0.02)-relPickPose(1))^2 + (y-relPickPose(2))^2);
                 scatter(-y,x, 'b');
                 hold on;
-                if (distFromPickPose > 0.2)%~(y < 0.1 && y > -0.1)   %this is trying to only get wedge in front of us (and not wall)
+                if (distFromPickPose > 0.16)%~(y < 0.1 && y > -0.1)   %this is trying to only get wedge in front of us (and not wall)
                     %fprintf("in find line candidate %d \n", y);
                     %fprintf("IN IF dist %d     x %d  y %d     relpickpose x %d   relpickpose y %d   \n", distFromPickPose, x, y, relPickPose(1), relPickPose(2));
                     
@@ -381,16 +383,16 @@ classdef mrplSystem12 < handle
                 newPointSetX = [pointSetX addlPointX];
                 newPointSetY = [pointSetY addlPointY];
                 
-                [Inertia2, centroidX2, centroidY2, numPoints2, dist2, ixx, ixy, iyy] = obj.getInertiaLab12(newPointSetX, newPointSetY);
+                [Inertia2, centroidX2, centroidY2, numPoints2, dist2, ixx, ixy, iyy] = obj.getInertia(newPointSetX, newPointSetY);
                 
-                [Inertia, centroidX, centroidY, numPoints, distance, Ixx, Ixy, Iyy] = obj.getInertiaLab12(pointSetX, pointSetY);
+                [Inertia, centroidX, centroidY, numPoints, distance, Ixx, Ixy, Iyy] = obj.getInertia(pointSetX, pointSetY);
                 
                 eig2 = eig(Inertia2);
                 
                 lambda2 = eig(Inertia);
                 lambda = eig(Inertia);
                 
-                if (eig2(2) - lambda(2) < 0.0003)%.00009)%45)
+                if (eig2(2) - lambda(2) < .00009)%45)
                     fprintf("eig: %d\n", eig2(2) - lambda(2));
                     continue;
                 end
@@ -398,9 +400,7 @@ classdef mrplSystem12 < handle
                 diff = eig2(2) - lambda(2);
                 lambda = sqrt(lambda)*1000.0;
                 distanceThreshold = 0.01;
-                numPoints = length(pointSetX);
-                %distance = tmp;
-                fprintf("numPoints %d, distance %d length %d\n",numPoints, distance, length(pointSetX));
+                fprintf("lambda %d, numPoints %d, distance %d length %d\n",lambda, numPoints, distance, length(pointSetX));
                 if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && (distance < minDistance + distanceThreshold))
                     leftX = min(pointSetX); topY = max(pointSetY);
                     rightX = max(pointSetX); bottomY = min(pointSetY);
@@ -697,8 +697,8 @@ classdef mrplSystem12 < handle
                 yEnc = obj.robot.encoders.LatestMessage.Vector.Y;
                 
                 lastT = trajectory.getTrajectoryDuration();
-                tao = 2.5; %2.5;%0.6;%0.4;%.27; %0.7;
-                taoX = 3.25; %2.5;
+                tao = 3; %2.5;%0.6;%0.4;%.27; %0.7;
+                taoTh = 3; %2.5;
                 
                 tDelay = 0.115;%0.11;
                 tcurr = 0;
@@ -764,9 +764,9 @@ classdef mrplSystem12 < handle
                         mat = zeros(2,2);
                         mat(1,1) = cos(sensedTheta); mat(1,2) = -sin(sensedTheta);
                         mat(2,1) = sin(sensedTheta); mat(2,2) = cos(sensedTheta); 
-                        kth = 1/tao; 
+                        kth = 1/taoTh; 
                         rpr = (mat^-1)*[errorx; errory];
-                        thekx = 1/taoX;
+                        thekx = 1/tao;
                     
                         theky = 2/(prevV*tao^2);
                         if (prevV < 0.05)
