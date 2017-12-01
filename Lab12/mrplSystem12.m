@@ -46,7 +46,7 @@ classdef mrplSystem12 < handle
             
             obj.localizer = lineMapLocalizer12(lines_p1, lines_p2, 0.3, 0.01, 0.0005);
             
-            obj.robot = raspbot('Raspbot-24');
+            obj.robot = raspbot('Raspbot-2');
             pause(2);
             
             obj.robot.encoders.NewMessageFcn = @encoderEventListener;
@@ -84,7 +84,7 @@ classdef mrplSystem12 < handle
                 tStart = tic();
                 tcurr = toc(tStart);
                 for i = 1:length(pts)
-                    if (mod(i, 3) == 0) %used to be 8
+                    if (mod(i, 2) == 0) %used to be 8
                         [x,y,th] = obj.irToXy(i, pts(i));
                         if ((th <= pi/6) && (th >= -pi/6))
                             xArr = [xArr x];
@@ -258,7 +258,7 @@ classdef mrplSystem12 < handle
             pause(0.5);
             %obj.moveRelDist(0.14, 0);
             %pause(0.1);
-            fprintf("ABOUT TO GO STRAIGHT\n");
+           % fprintf("ABOUT TO GO STRAIGHT\n");
             obj.robot.sendVelocity(0.1,0.1);
             pause(1.5);
             obj.robot.sendVelocity(0,0);
@@ -299,7 +299,7 @@ classdef mrplSystem12 < handle
             %fprintf("abs pick pose %d %d %d \n", absPickPose(1), absPickPose(2), absPickPose(3));
             %fprintf("tro pose %d %d %d \n", Tro(1), Tro(2), Tro(3));
             if (absPickPose(1) == 0.9144)
-                offset = -0.45; %-0.24;
+                offset = -0.6; %-0.24;
             else
                 offset = -0.45; %-0.35
             end
@@ -745,7 +745,7 @@ classdef mrplSystem12 < handle
         end
     
         function executeTrajectory2(obj, iteration)
-                fprintf("TOP OF EXECUTE TRAJ\n");
+               % fprintf("TOP OF EXECUTE TRAJ\n");
                 global currval; global currval2;
                 global preval; global preval2;
                 referenceXArr = []; referenceYArr = []; sensedXArr = []; sensedYArr = [];sensedThArr = [];referenceThArr = [];
@@ -758,10 +758,11 @@ classdef mrplSystem12 < handle
                 yEnc = obj.robot.encoders.LatestMessage.Vector.Y;
                 
                 lastT = trajectory.getTrajectoryDuration();
+                
                 tao = 2.5; %2.5;%0.6;%0.4;%.27; %0.7;
-                taoX = 3.5;%3.25; %2.5; 
-                taoTh = 1.5;%2.5;%2.0;
-                taoY = 1.5;%2.0;%2.5;
+                taoX = 1.0;%3.5;%3.25; %2.5; 
+                taoTh = 1.0;%1.5;%2.5;%2.0;
+                taoY = 1.0;%1.5;%2.0;%2.5;
                 
                 tDelay = 0.115;%0.11;
                 tcurr = 0;
@@ -777,11 +778,12 @@ classdef mrplSystem12 < handle
                         firstLoop = false;
                         tStart = tic;
                     end
-                    fprintf("before while encoders in first while\n");
+                    %fprintf("before while encoders in first while\n");
                     while (preval == currval)
                        pause(0.001);
                     end
-                    fprintf("after while encoders in first while\n");
+                    %fprintf("after while encoders in first while\n");
+                    %fprintf("tcurr %d, lastT %d, tDelay %d\n", tcurr, lastT, tDelay);
                     preval = currval;
                     newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
                     newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
@@ -862,11 +864,11 @@ classdef mrplSystem12 < handle
                     pause(0.01);
                     
                 end
-                fprintf("BEFORE WHILE ENCODER\n");
+               % fprintf("BEFORE WHILE ENCODER\n");
                 while (preval == currval)
                    pause(0.001);
                 end
-                fprintf("AFTER WHILE ENCODER\n");
+                %fprintf("AFTER WHILE ENCODER\n");
                 
                 preval = currval;
                 newxEnc = obj.robot.encoders.LatestMessage.Vector.X;
@@ -887,7 +889,7 @@ classdef mrplSystem12 < handle
                     legend("reference", "sensed");
                     hold on;
                 end
-                fprintf("END OF EXECUTE TRAJ\n");
+               % fprintf("END OF EXECUTE TRAJ\n");
                 
         end
     end
