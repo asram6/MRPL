@@ -135,7 +135,7 @@ classdef lineMapLocalizer13 < handle
                     hold on
                     ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
                     hold on
-                    dim = length(worldBodyPts)
+                    fprintf(""
                     kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
                     hold off
                     pause(0.001);
