@@ -29,6 +29,8 @@ classdef lineMapLocalizer13 < handle
             obj.gain = gain;         
             obj.errThresh = errThresh;     
             obj.gradThresh = gradThresh;
+            
+            obj.times = [];
         end
 
 
@@ -117,9 +119,12 @@ classdef lineMapLocalizer13 < handle
             errorStop = false;
             gradStop = false;
             if (length(pointsInModelFrame) < ptsThresh)
+                %fprintf("in here but this bad\n");
                 successPts = false;
             else
-                
+                %fprintf("this is gooder\n");
+                tStart = tic;
+                t1 = toc(tStart);
                 while((err >= obj.errThresh) && (grad >= obj.gradThresh) && (currIteration < maxIters))
                     condition2 = (grad > obj.gradThresh);
                     condition1 = (err > obj.errThresh);
@@ -137,21 +142,25 @@ classdef lineMapLocalizer13 < handle
                     %fprintf("here\n");
                     %worldBodyPts
                     x = [0 0; 0 (1.2192*2)]; y = [0 0; (1.2192*2) 0];
-                    kh = plot(obj.lines_p1, obj.lines_p2);
-                    kh = plot(x, y);
-                    axis([-1, 3, -1, 3]); 
-                    hold on
-                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
-                    hold on
-                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
-                    hold off
+%                     kh = plot(obj.lines_p1, obj.lines_p2);
+%                     kh = plot(x, y);
+%                     axis([-1, 3, -1, 3]); 
+%                     hold on
+%                     ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+%                     hold on
+%                     kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+%                     hold off
                     pause(0.001);
                     currIteration = currIteration + 1;
                    
                    
                 end
-                kh = plot(obj.lines_p1, obj.lines_p2);
+                t2 = toc(tStart);
+                loopTime = t2 - t1;
                 kh = plot(x, y);
+                title('Robot WTF Lidar Points With Wall');
+                xlabel('X (m)');
+                ylabel('Y (m)');
                 axis([-1, 2, -1, 2]); 
                 hold on
                 ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
@@ -167,6 +176,34 @@ classdef lineMapLocalizer13 < handle
                 if (err >= obj.errThresh && grad >= obj.gradThresh)
                     successIters = false;
                     %fprintf("MAX ITERS CUT OFF\n");
+                end
+                obj.times = [obj.times, loopTime];
+                avgTime = mean(obj.times);
+                fprintf("errstop %d, gradStop %d, iterationstop %d: time %d, avg %d\n", errorStop, gradStop, ~successIters, loopTime, avgTime);
+%                 
+%                 kh = plot(obj.lines_p1, obj.lines_p2);
+%                 kh = plot(x, y);
+%                 axis([-1, 2, -1, 2]); 
+%                 hold on
+%                 ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+%                 hold on
+%                 kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+%                 hold off
+%                 if (err < obj.errThresh)
+%                     errorStop = true;
+%                 end
+%                 if (grad < obj.gradThresh)
+%                     gradStop = true;
+%                 end
+%                 if (err >= obj.errThresh && grad >= obj.gradThresh)
+%                     successIters = false;
+%                     %fprintf("MAX ITERS CUT OFF\n");
+%                 end
+
+                if (err >= obj.errThresh && grad >= obj.gradThresh)
+                    success = false;
+                else
+                    success = true;
                 end
                 outPose = inPose;
                 %fprintf("refine pose time %d\n", tend);

@@ -78,10 +78,23 @@ classdef mrplSystem13 < handle
             lines13b = [p6 p7 p8];
             obj.pickingUp = true;
 
+            cornerOffset = 0.3;
+            
+            p1 = [0 ; cornerOffset];
+            p1b = [cornerOffset ; 0];
+            p2 = [ 0 ; 1.2192*2];
+            p3 = [ 1.2192*2 - cornerOffset;  0];
+            p3b = [ 1.2192*2 ; cornerOffset];
+            p4 = [1.2192*2; 1.2192*2];
+            lines_p1 = [p1 p1b p3b];
+            lines_p2 = [p2 p3 p4];
+            lines13a = lines_p1;
+            lines13b = lines_p2;
+            
             obj.vmax = 0.07;%0.07;
             
             %obj.localizer = lineMapLocalizer13(lines_p1, lines_p2, 0.3, 0.01, 0.0005);
-            obj.localizer = lineMapLocalizer13(lines13a, lines13b, 0.3, 0.01, 0.0005);
+            obj.localizer = lineMapLocalizer13(lines13a, lines13b, 0.6, 0.00007, 0.0003);
             
             obj.robot = raspbot('Raspbot-24');
             pause(2);
@@ -93,6 +106,7 @@ classdef mrplSystem13 < handle
             encoderX = obj.robot.encoders.LatestMessage.Vector.X;
             encoderY = obj.robot.encoders.LatestMessage.Vector.Y;
             obj.estRobot = simRobot1(encoderX, encoderY);
+            
             obj.robot.startLaser();
             pause(2);
             obj.robot.forksDown();
@@ -120,51 +134,71 @@ classdef mrplSystem13 < handle
             
             if (~flag)
                 %step 2: lidar pose 
+%                 robotBodyPts = poseEst.bToA()*bodyPts;
+%                 pts = obj.robot.laser.LatestMessage.Ranges;
+%                 xArr = []; yArr = []; thArr = []; wArr = [];
+%                 tStart = tic();
+%                 tcurr = toc(tStart);
+%                 count = 1;
+%                 for i = 1:length(pts)
+%                     if (count == 5) %used to be 8
+%                         count = 0;
+%                         [x,y,th] = obj.irToXy(i, pts(i));
+%                         %if ((th <= pi/6) && (th >= -pi/6))
+%                             xArr = [xArr x];
+%                             yArr = [yArr y];
+%                             wArr = [wArr 1.0];
+%                         %end
+%                     end
+%                     count = count + 1;
+%                 end
+%                 tcurr = toc(tStart);
+                %fprintf("boop\n");
+%                 pointsInModelFrame = [xArr ; yArr; wArr];
+%                 fprintf("points in model frame before %d\n", length(pointsInModelFrame));
+%                 ids = obj.localizer.throwOutliers(poseEst, pointsInModelFrame);
+% 
+%                 allIds = linspace(1, length(pointsInModelFrame), length(pointsInModelFrame));
+%                 
+%                 goodIds = setdiff(allIds, ids);
+%                 pointsInModelFrame = pointsInModelFrame(:, goodIds);
+%                 fprintf("points in model frame %d\n", length(pointsInModelFrame));
+%                 
                 robotBodyPts = poseEst.bToA()*bodyPts;
                 pts = obj.robot.laser.LatestMessage.Ranges;
                 xArr = []; yArr = []; thArr = []; wArr = [];
-                tStart = tic();
-                tcurr = toc(tStart);
-                count = 1;
                 for i = 1:length(pts)
-                    if (count == 5) %used to be 8
-                        count = 0;
+                    if (mod(i, 10) == 0)
                         [x,y,th] = obj.irToXy(i, pts(i));
-                        %if ((th <= pi/6) && (th >= -pi/6))
-                            xArr = [xArr x];
-                            yArr = [yArr y];
-                            wArr = [wArr 1.0];
-                        %end
+                        xArr = [xArr x];
+                        yArr = [yArr y];
+                        wArr = [wArr 1.0];
                     end
-                    count = count + 1;
                 end
-                tcurr = toc(tStart);
-                %fprintf("boop\n");
                 pointsInModelFrame = [xArr ; yArr; wArr];
-               % fprintf("points in model frame before %d\n", length(pointsInModelFrame));
+                %fprintf("pose Est %d %d %d\n", poseEst.x(), poseEst.y(), poseEst.th());
                 ids = obj.localizer.throwOutliers(poseEst, pointsInModelFrame);
-
+            
                 allIds = linspace(1, length(pointsInModelFrame), length(pointsInModelFrame));
-                
                 goodIds = setdiff(allIds, ids);
                 pointsInModelFrame = pointsInModelFrame(:, goodIds);
-                %fprintf("points in model frame %d\n", length(pointsInModelFrame));
+                
                 %fprintf("beep...");
-                [successPts, successIters, errorStop, gradStop, poseLidar, totalTime] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 15, robotBodyPts);
+                [successPts, successIters, errorStop, gradStop, poseLidar, totalTime] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 30, robotBodyPts);
                 obj.totalRefinePose = obj.totalRefinePose + 1;
-                if (~successIters)
-                    obj.cutOff = obj.cutOff + 1;
-                end
-                if (errorStop)
-                    obj.errorStop = obj.errorStop + 1;
-                end
-                if (gradStop)
-                    obj.gradStop = obj.gradStop + 1;
-                end
-                if (~successPts)
-                    obj.fewPts = obj.fewPts + 1;
-                    fprintf("too few points\n");
-                end
+%                 if (~successIters)
+%                     obj.cutOff = obj.cutOff + 1;
+%                 end
+%                 if (errorStop)
+%                     obj.errorStop = obj.errorStop + 1;
+%                 end
+%                 if (gradStop)
+%                     obj.gradStop = obj.gradStop + 1;
+%                 end
+%                 if (~successPts)
+%                     obj.fewPts = obj.fewPts + 1;
+%                     fprintf("too few points\n");
+%                 end
                 obj.refinePoseTimes = [obj.refinePoseTimes totalTime];
                 %fprintf("boop\n");
                 obj.lidarX = poseLidar.x(); obj.lidarY = poseLidar.y(); obj.lidarTh = poseLidar.th();
@@ -315,6 +349,10 @@ classdef mrplSystem13 < handle
 %             pickPoses
 %             obj.dropPoses
             obj.startPose = [0.2286; 0.2286; -pi()/2];
+            obj.estRobot.x = obj.startPose(1);
+            obj.estRobot.y = obj.startPose(2);
+            obj.estRobot.theta = obj.startPose(3);
+            
             obj.sensedX = obj.startPose(1); obj.sensedY = obj.startPose(2); obj.sensedTh = obj.startPose(3);
             %obj.estRobot.x = 0.2286; obj.estRobot.y = 0.2286; obj.estRobot.theta = pi()/2; not needed anymore (done in simRobot constructor) 
             

@@ -16,6 +16,7 @@ classdef lineMapLocalizer < handle
         gain = 0.0;     
         errThresh = 0.0;     
         gradThresh = 0.0;   
+        times = [];
     end
     
     methods
@@ -27,10 +28,12 @@ classdef lineMapLocalizer < handle
             obj.gain = gain;         
             obj.errThresh = errThresh;     
             obj.gradThresh = gradThresh;
+            
+            obj.times = [];
         end
 
 
-        function ro2 = closestSquaredDistanceToLines(obj,pi)            
+        function [ro2, closeToTwo] = closestSquaredDistanceToLines(obj,pi)            
             % Find the squared shortest distance from pi to any line             
             % segment in the supplied list of line segments.
             % pi is an array of 2d points
@@ -38,11 +41,12 @@ classdef lineMapLocalizer < handle
 
             pi = pi(1:2,:);
             r2Array = zeros(size(obj.lines_p1,2),size(pi,2));
-
+            
             for i = 1:size(obj.lines_p1,2)
                 [r2Array(i,:) , ~] = closestPointOnLineSegment(pi,...                    
                     obj.lines_p1(:,i),obj.lines_p2(:,i));               
             end
+            closeToTwo = min(r2Array,[],1);
             ro2 = min(r2Array,[],1);
         end
         
@@ -51,8 +55,8 @@ classdef lineMapLocalizer < handle
         function ids = throwOutliers(obj,currPose,ptsInModelFrame)            
             % Find ids of outliers in a scan.             
             worldPts = currPose.bToA()*ptsInModelFrame;
-            r2 = obj.closestSquaredDistanceToLines(worldPts);     
-            ids = find(r2 > obj.maxErr*obj.maxErr);        
+            [r2, closeToTwo] = obj.closestSquaredDistanceToLines(worldPts);     
+            ids = find((r2 > obj.maxErr*obj.maxErr));% || ());        
         end
 
         function avgErr2 = fitError(obj,inPose,ptsInModelFrame)            
@@ -98,7 +102,7 @@ classdef lineMapLocalizer < handle
             jacTh = (fitError(obj, newPose, modelPts) - err2_Plus0)/eps;
             
             J = [jacX, jacY, jacTh];   
-            err2_Plus0 = sqrt(err2_Plus0);    
+            %err2_Plus0 = sqrt(err2_Plus0);    
         end
         
         function [success, outPose] = refinePose(obj, inPose, pointsInModelFrame, maxIters, robotBodyPts)
@@ -108,10 +112,14 @@ classdef lineMapLocalizer < handle
             currIteration = 0;
             ptsThresh = 5;
             outPose = inPose;
+            errorStop = false;
+            gradStop = false;
+            successIters = true;
             if (length(pointsInModelFrame) < ptsThresh)
                 success = false;
             else
-                
+                tStart = tic;
+                t1 = toc(tStart);
                 while((err >= obj.errThresh) && (grad >= obj.gradThresh) && (currIteration < maxIters))
                     condition2 = (grad > obj.gradThresh);
                     condition1 = (err > obj.errThresh);
@@ -130,21 +138,45 @@ classdef lineMapLocalizer < handle
                     %worldBodyPts
                     x = [0 0; 0 1.2192]; y = [0 0; 1.2192 0];
                     %kh = plot(obj.lines_p1, obj.lines_p2, "b");
-                    kh = plot(x, y);
-                    title('Robot WTF Lidar Points With Wall');
-                    xlabel('X (m)');
-                    ylabel('Y (m)');
-                    axis([-1, 2, -1, 2]); 
-                    hold on
-                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
-                    hold on
-                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
-                    hold off
-                    pause(0.001);
+  %                  kh = plot(x, y);
+%                     title('Robot WTF Lidar Points With Wall');
+%                     xlabel('X (m)');
+%                     ylabel('Y (m)');
+%                     axis([-1, 2, -1, 2]); 
+%                     hold on
+%                     ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+%                     hold on
+%                     kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+%                     hold off
+%                     pause(0.001);
                     currIteration = currIteration + 1;
-                   
-                   
+                    
                 end
+                t2 = toc(tStart);
+                loopTime = t2 - t1;
+                kh = plot(x, y);
+                title('Robot WTF Lidar Points With Wall');
+                xlabel('X (m)');
+                ylabel('Y (m)');
+                axis([-1, 2, -1, 2]); 
+                hold on
+                ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+                hold on
+                kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+                hold off
+                if (err < obj.errThresh)
+                    errorStop = true;
+                end
+                if (grad < obj.gradThresh)
+                    gradStop = true;
+                end
+                if (err >= obj.errThresh && grad >= obj.gradThresh)
+                    successIters = false;
+                    %fprintf("MAX ITERS CUT OFF\n");
+                end
+                obj.times = [obj.times, loopTime];
+                avgTime = mean(obj.times);
+                fprintf("errstop %d, gradStop %d, iterationstop %d: time %d, avg %d\n", errorStop, gradStop, ~successIters, loopTime, avgTime);
                 
                 if (err >= obj.errThresh && grad >= obj.gradThresh)
                     success = false;
