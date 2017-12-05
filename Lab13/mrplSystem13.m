@@ -4,15 +4,14 @@ classdef mrplSystem13 < handle
         errorxarr; erroryarr ; errortharr; varr; warr; tarr; 
         odometryX;odometryY; odometryTh; lidarX; lidarY; sensedX; sensedY; sensedTh; offset;
         dropPoses; vmax; pickPose; pickingUp; vmaxFirst; onFirst; dropPose; lidarTh; refinePoseTimes; totalRefinePose; cutOff; fewPts; errorStop; gradStop;
+        odometryXArr; odometryYArr; lidarXArr; lidarYArr;
     end
     
     methods
        	function mat = aToB(obj, pose)
             % Returns the homogeneous transform that converts coordinates from
             % the a frame to the b frame.
-
             bTa = obj.bToA(pose);
-
             mat = bTa^-1;
         end
         
@@ -61,7 +60,8 @@ classdef mrplSystem13 < handle
             obj.offset = -0.45;
             obj.cutOff = 0; obj.totalRefinePose = 0;
             obj.errorStop = 0; obj.gradStop = 0;
-            %obj.odometryX = [];obj.odometryY = []; obj.lidarX = []; obj.lidarY = [];
+            obj.odometryXArr = []; obj.odometryYArr = []; obj.lidarXArr = []; obj.lidarYArr= [];
+            %obj.odometryX = 0;obj.odometryY = []; obj.lidarX = []; obj.lidarY = [];
             p1 = [0 ; 0];
             p2 = [ 0 ; 1.2192];
             p3 = [ 1.2192 ;  0];
@@ -80,8 +80,8 @@ classdef mrplSystem13 < handle
 
             obj.vmax = 0.07;%0.07;
             
-            obj.localizer = lineMapLocalizer13(lines_p1, lines_p2, 0.3, 0.0003, 0.00005);
-            %obj.localizer = lineMapLocalizer13(lines13a, lines13b, 0.3, 0.01, 0.0005);
+            %obj.localizer = lineMapLocalizer13(lines_p1, lines_p2, 0.3, 0.01, 0.0005);
+            obj.localizer = lineMapLocalizer13(lines13a, lines13b, 0.3, 0.01, 0.0005);
             
             obj.robot = raspbot('Raspbot-24');
             pause(2);
@@ -98,8 +98,8 @@ classdef mrplSystem13 < handle
             obj.robot.forksDown();
             pause(0.5);
             
-            testLocalize(obj);
-            %obj.lab13ChallengeTask(); 
+            %testLocalize(obj);
+            obj.lab13ChallengeTask(); 
         end
         
         function poseEst = updateStateFromEncodersAtTime(obj,newx,newy,tcurr, bodyPts, flag)
@@ -114,8 +114,10 @@ classdef mrplSystem13 < handle
             poseEst = pose(newX, newY, newTh);
             obj.odometryX = newX;
             obj.odometryY = newY;
+            obj.odometryTh = newTh;
+            obj.odometryXArr = [obj.odometryXArr newX];
+            obj.odometryYArr = [obj.odometryYArr newY];
             
-                       
             if (~flag)
                 %step 2: lidar pose 
                 robotBodyPts = poseEst.bToA()*bodyPts;
@@ -139,16 +141,16 @@ classdef mrplSystem13 < handle
                 tcurr = toc(tStart);
                 %fprintf("boop\n");
                 pointsInModelFrame = [xArr ; yArr; wArr];
-                
+               % fprintf("points in model frame before %d\n", length(pointsInModelFrame));
                 ids = obj.localizer.throwOutliers(poseEst, pointsInModelFrame);
 
                 allIds = linspace(1, length(pointsInModelFrame), length(pointsInModelFrame));
                 
                 goodIds = setdiff(allIds, ids);
                 pointsInModelFrame = pointsInModelFrame(:, goodIds);
-
+                %fprintf("points in model frame %d\n", length(pointsInModelFrame));
                 %fprintf("beep...");
-                [successPts, successIters, errorStop, gradStop, poseLidar, totalTime] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 20, robotBodyPts);
+                [successPts, successIters, errorStop, gradStop, poseLidar, totalTime] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 15, robotBodyPts);
                 obj.totalRefinePose = obj.totalRefinePose + 1;
                 if (~successIters)
                     obj.cutOff = obj.cutOff + 1;
@@ -166,6 +168,9 @@ classdef mrplSystem13 < handle
                 obj.refinePoseTimes = [obj.refinePoseTimes totalTime];
                 %fprintf("boop\n");
                 obj.lidarX = poseLidar.x(); obj.lidarY = poseLidar.y(); obj.lidarTh = poseLidar.th();
+                obj.lidarXArr = [obj.lidarXArr obj.lidarX];
+                obj.lidarYArr = [obj.lidarYArr, obj.lidarY];
+
                 %step 3: new pest from pest and plid
                 k = 0.25;%0.25; % <= 1/4
                 newTh = newTh + k*(obj.lidarTh - newTh);
@@ -210,7 +215,7 @@ classdef mrplSystem13 < handle
             % least a secondFill me in
             % move a distance forward or backward
             global preval; global currval;
-            seconds = 1.5; %3.0;
+            seconds = 3.0; %1.5;
             %angle = angle/2;
             w = angle/seconds;
             V = 0;
@@ -231,8 +236,9 @@ classdef mrplSystem13 < handle
             obj.robot.sendVelocity(0, 0);
             pause(0.1);
             tcurr = toc(tstart);
-           % fprintf("after turn before update x %d, y %d, th %d\n", obj.sensedX, obj.sensedY, obj.sensedTh);
-            obj.estRobot.tPrev = 0;
+            %fprintf("after turn before update x %d, y %d, th %d        odometry x %d, y %d, th %d        lidar x %d, %d, %d\n", obj.sensedX, obj.sensedY, obj.sensedTh, ...
+            %    obj.odometryX, obj.odometryY, obj.odometryTh, obj.lidarX, obj.lidarY, obj.lidarTh);
+            %obj.estRobot.tPrev = 0; JUST TOOK THIS OUT
 %             while (preval == currval)
 %                    pause(0.001);
 %             end
@@ -244,7 +250,8 @@ classdef mrplSystem13 < handle
             
             
             obj.updateSensedState(tcurr, flag);
-           % fprintf("after turn after update x %d, y %d, th %d\n", obj.sensedX, obj.sensedY, obj.sensedTh);
+            %fprintf("after turn after update x %d, y %d, th %d        odometry x %d, y %d, th %d        lidar x %d, %d, %d\n", obj.sensedX, obj.sensedY, obj.sensedTh, ...
+            %    obj.odometryX, obj.odometryY, obj.odometryTh, obj.lidarX, obj.lidarY, obj.lidarTh);
             
         end
         
@@ -305,15 +312,15 @@ classdef mrplSystem13 < handle
                 obj.dropPoses = [obj.dropPoses; [dropX, dropY, dropTh]];
                 dropX = dropX + 0.1524;
                 end
-            pickPoses
-            obj.dropPoses
-            obj.startPose = [0.2286; 0.2286; pi()/2];
+%             pickPoses
+%             obj.dropPoses
+            obj.startPose = [0.2286; 0.2286; -pi()/2];
             obj.sensedX = obj.startPose(1); obj.sensedY = obj.startPose(2); obj.sensedTh = obj.startPose(3);
             %obj.estRobot.x = 0.2286; obj.estRobot.y = 0.2286; obj.estRobot.theta = pi()/2; not needed anymore (done in simRobot constructor) 
             
             %This is here so that we can switch to the smaller case to test
-            %pickPoses = [[0.3048, 1.0668, pi/2]; [0.6098, 1.0688, pi/2];[0.9144, 1.0688, pi/2]];  %0.9144
-            %obj.dropPoses = [[0.5344, .1524, -pi/2]; [0.6858, 0.1524, -pi/2];[0.8382, 0.1524, -pi/2]];
+%             pickPoses = [[0.3048, 1.0668, pi/2]; [0.6098, 1.0688, pi/2];[0.9144, 1.0688, pi/2]];  %0.9144
+%             obj.dropPoses = [[0.5344, .3048, -pi/2]; [0.6858, 0.3048, -pi/2];[0.8382, 0.3048, -pi/2]];
             
             while (~isempty(pickPoses)) 
                 obj.pickingUp = true;
@@ -321,7 +328,7 @@ classdef mrplSystem13 < handle
                 obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
                 %fprintf("pick up %d %d %d \n", pickPose(1),pickPose(2),pickPose(3));
                 obj.pickDropObject(obj.pickPose);
-                fprintf("mean refine pose time %d\n", mean(obj.refinePoseTimes));
+                %fprintf("mean refine pose time %d\n", mean(obj.refinePoseTimes));
                 obj.refinePoseTimes = [];
 %                 fprintf("nums cutoff %d, total %d\n", obj.cutOff, obj.totalRefinePose);
 %                 fprintf("cutting off ratio %d\n", (obj.cutOff/obj.totalRefinePose));
@@ -351,7 +358,7 @@ classdef mrplSystem13 < handle
             %SECOND MOTION
             
             brokenOut = obj.executeTrajectoryToAbsPose(absPick(1), absPick(2), absPick(3), obj.vmax, 1, 1, 1);
-            obj.estRobot.tPrev = 0;
+            %obj.estRobot.tPrev = 0; JUST TOOK THIS OUT
             pause(0.2);
             %%%check for broken out
             
@@ -377,12 +384,12 @@ classdef mrplSystem13 < handle
         end
         
         function dropOffPallet(obj, absDestPose)
-            offset = 0.0;%-0.12;
+%             offset = -0.3;%-0.12;
             relDestPose = obj.absToRel(absDestPose);
-            %Tro = relDestPose;
-            %Tog = [offset, 0, 0];
-            %dropPose = obj.matToPoseVec(obj.bToA(Tro)*obj.bToA(Tog));
-            absDropPose = absDestPose;%obj.relToAbs(dropPose);
+%             Tro = relDestPose;
+%             Tog = [offset, 0, 0];
+%             relDropPose = obj.matToPoseVec(obj.bToA(Tro)*obj.bToA(Tog));
+            absDropPose = absDestPose;%obj.relToAbs(relDropPose);
             
             obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
             
@@ -402,7 +409,6 @@ classdef mrplSystem13 < handle
             relDestPose = obj.absToRel(absDestPose);
             
             %fprintf("rel drop pose %d %d %d \n", relDestPose(1), relDestPose(2), relDestPose(3));
-            fprintf("abs drop pose %d %d %d \n", absDropPose(1), absDropPose(2), absDropPose(3));
             obj.executeTrajectoryToAbsPose(absDropPose(1),absDropPose(2),absDropPose(3),obj.vmaxFirst, 1, 1, 1);
             obj.robot.forksDown();
             pause(0.5);
@@ -417,6 +423,8 @@ classdef mrplSystem13 < handle
                 obj.dropPoses = [obj.dropPoses; obj.dropPose];
             end
             obj.pickingUp = true;
+            %fprintf("odometry x %d, y %d, th %d; lidar x %d, y %d, th %d;  sensed x %d, y %d, th %d\n", obj.odometryX, obj.odometryY, ...
+            %    obj.odometryTh, obj.lidarX, obj.lidarY, obj.lidarTh, obj.sensedX, obj.sensedY, obj.sensedTh);
         end
         
         function pickDropObject(obj, absPickPose)
@@ -424,7 +432,7 @@ classdef mrplSystem13 < handle
             %fprintf("abs pick pose %d %d %d \n", absPickPose(1), absPickPose(2), absPickPose(3));
             %fprintf("tro pose %d %d %d \n", Tro(1), Tro(2), Tro(3));
             offset = obj.offset;
-            obj.offset = obj.offset - 0.1;
+            %obj.offset = obj.offset - 0.1;
             %offset = -0.45; 
             %end
             Tog = [offset, 0, 0];
@@ -435,14 +443,14 @@ classdef mrplSystem13 < handle
             
             %currPose = [obj.sensedX, obj.sensedY, obj.sensedTh];
             turnAngle = atan2(acqPose(2), acqPose(1));
-            fprintf("ACQ POSE x %d, y %d, th %d,   turnangle %d\n", acqPose(1), acqPose(2), acqPose(3), turnAngle);
+            fprintf("ABS ACQ POSE x %d, y %d, th %d,   turnangle %d\n", absAcqPose(1), absAcqPose(2), absAcqPose(3), turnAngle);
             %turnAngle = acqPose(3);
             turnThreshold = pi/16;
             if (turnAngle > turnThreshold) %can change angle threshold
                 obj.turnRelAngle(turnAngle, 0, false); %test to see if negative
             end
             
-            fprintf("current pose %d %d %d \n", obj.sensedX, obj.sensedY, obj.sensedTh);
+            %fprintf("current pose %d %d %d \n", obj.sensedX, obj.sensedY, obj.sensedTh);
             %fprintf("abs acq pose %d %d %d \n", absAcqPose(1), absAcqPose(2), absAcqPose(3));
             
             %FIRST MOTION
@@ -527,6 +535,144 @@ classdef mrplSystem13 < handle
             Inertia = [Ixx Ixy;Ixy Iyy] / numPointsLab13; % normalized
         end
         
+        function [found, palletPose] = findLineCandidateDrop(obj, ranges, xArr, yArr)
+           % fprintf("TOP OF FIND LINE CANDIDATE\n");
+            %scatter(xArr, yArr, 'g');
+            centroidXFinal = 0; centroidYFinal = 0; orientationFinal = 0; found = false;
+            %hold on;
+            count = 0;  minDistance = 4.0; maxPoints = 0;
+            addlPointX = 0; addlPointY = 0; 
+           % figure(27);
+           % scatter(-relPickPose(2),relPickPose(1), 'r');
+           % hold on;
+            for i = 1:length(ranges)
+                pointSetX = []; pointSetY = [];
+                x = xArr(i); y = yArr(i);
+                if x < 0
+                    continue;
+                end
+                if ((th > pi/6) || (th < -pi/6))
+                   continue;
+                end
+                %fprintf("skipped th %d\n", th);
+                %distFromPickPose = sqrt(((x-0.02)-relPickPose(1))^2 + (y-relPickPose(2))^2);
+                %scatter(-y,x, 'b');
+                %hold on;
+                %if (distFromPickPose > 0.2)%~(y < 0.1 && y > -0.1)   %this is trying to only get wedge in front of us (and not wall)
+                    %fprintf("in find line candidate %d \n", y);
+                    %fprintf("IN IF dist %d     x %d  y %d     relpickpose x %d   relpickpose y %d   \n", distFromPickPose, x, y, relPickPose(1), relPickPose(2));
+                    
+                %    continue;
+                %else
+                    %fprintf("dist %d\n", distFromPickPose);
+                    %fprintf("else dist %d     x %d  y %d     relpickpose x %d   relpickpose y %d   \n", distFromPickPose, x, y, relPickPose(1), relPickPose(2));
+               % end
+                minDist = 4.0;
+                for j = 1:length(ranges)
+                    otherX = xArr(j); otherY = yArr(j);
+                    dist = sqrt((otherX - x)^2 + (otherY - y)^2);
+                    threshold = 0.01;
+                    if dist <= 0.0635 + threshold
+                        pointSetX = [pointSetX otherX];
+                        pointSetY = [pointSetY otherY];
+                    else
+                        if dist < minDist
+                            addlPointX = otherX;
+                            addlPointY = otherY;
+                            minDist = dist;
+                        end
+                    end
+                    
+                end
+                newPointSetX = [pointSetX addlPointX];
+                newPointSetY = [pointSetY addlPointY];
+                
+                [Inertia2, centroidX2, centroidY2, numPoints2, dist2, ixx, ixy, iyy] = obj.getInertiaLab13(newPointSetX, newPointSetY);
+                
+                [Inertia, centroidX, centroidY, numPoints, distance, Ixx, Ixy, Iyy] = obj.getInertiaLab13(pointSetX, pointSetY);
+                
+                eig2 = eig(Inertia2);
+                
+                lambda2 = eig(Inertia);
+                lambda = eig(Inertia);
+                
+                if (eig2(2) - lambda(2) < 0.0009)%.00009)%45)
+                    %fprintf("eig: %d\n", eig2(2) - lambda(2));
+                    continue;
+                end
+                
+                diff = eig2(2) - lambda(2);
+                %fprintf("DIFF %d \n", diff);
+                lambda = sqrt(lambda)*1000.0;
+                distanceThreshold = 0.01;
+                numPoints = length(pointSetX);
+                %distance = tmp;
+                %fprintf("numPoints %d, distance %d length %d\n",numPoints, distance, length(pointSetX));
+                if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && (distance < minDistance + distanceThreshold)) %%THIS USED TO BE 7
+                    
+                    leftX = min(pointSetX); topY = max(pointSetY);
+                    rightX = max(pointSetX); bottomY = min(pointSetY);
+                    diagonal = sqrt((rightX - leftX)^2 + (bottomY - topY)^2);
+                    %fprintf("IN FIRST IF diagonal %d\n", (abs(diagonal - 0.127)));
+                    %fprintf("line 396!!!!\n");
+                    if abs(diagonal - 0.127) <= 0.035
+                        
+                       
+                        %fprintf("find  line candidate = %d \n", y);
+                        found = true;
+                        maxPoints = numPoints;
+                        minDistance = distance;
+                        count = count + 1;
+                        if (count == 11)
+                            count = 0;
+                        end
+                        orientation = atan2(2*Ixy,Iyy-Ixx)/2.0;
+                        centroidXFinal = centroidX; centroidYFinal = centroidY; 
+                       % figure(7);
+                        if (((orientation < 0)))% && (centroidX > 0)) || ((orientation >= 0) && (centroidX <= 0)))
+                           
+                            %plot([leftX, rightX], [bottomY, topY]);
+                        else
+                            %plot([leftX, rightX], [topY, bottomY]);
+                        end
+                        %hold on;
+                        %plot(centroidX, centroidY, 'r*');
+                        %fprintf("centroidx %d, centroidy %d, orientation %d \n", centroidX, centroidY, orientation);
+                        palletPose = [centroidXFinal, centroidYFinal, orientation];
+                        absPose = obj.relToAbs(palletPose);
+                        theDist = sqrt((absPose(1) - obj.pickPose(1))^2 + (absPose(2) - obj.pickPose(2))^2);
+                        
+                        %once we figure out how close these poses are when
+                        %it's looking at the correct one, when this dist is
+                        %too big we know that the pallet we were looking
+                        %for is not actually there
+                        %So, found should be false if the distance is not
+                        %small enough
+                        fprintf("SEE IF ANY OF THESE HAVE A SMALL DISTANCE AND HOW SMALL: pose found: x %d y %d th %d    pickup pose x %d y %d th %d    distance between: %d\n", absPose(1), absPose(2), absPose(3), ...
+                           obj.pickPose(1), obj.pickPose(2), obj.pickPose(3), theDist);
+                        %fprintf("centroidXFinal %d, centroidYFinal %d, orientation %d \n", centroidXFinal, centroidYFinal, orientation);
+                        %fprintf("ABS x %d, y %d, th %d FOUND %d\n", absPose(1), absPose(2), absPose(3), found);
+                        hold on;
+                    end
+                    
+                end
+                
+            end
+            
+                        
+            if (found)
+                
+                palletPose = [centroidXFinal, centroidYFinal, orientation];
+            else
+                palletPose = [0, 0, 0];  %THIS MIGHT BE WRONGGGGGG!!!!
+            end
+            absPose = obj.relToAbs(palletPose);
+            %fprintf("centroidXFinal %d, centroidYFinal %d, orientation %d \n", centroidXFinal, centroidYFinal, orientation);
+            %fprintf("ABS x %d, y %d, th %d FOUND %d\n", absPose(1), absPose(2), absPose(3), found);
+            %fprintf("count %d\n", count);
+           % fprintf("END OF FIND LINE\n");
+        end
+        
         function [found, palletPose] = findLineCandidate(obj, ranges, xArr, yArr, offset, relPickPose)
            % fprintf("TOP OF FIND LINE CANDIDATE\n");
             %scatter(xArr, yArr, 'g');
@@ -601,9 +747,11 @@ classdef mrplSystem13 < handle
                 %distance = tmp;
                 %fprintf("numPoints %d, distance %d length %d\n",numPoints, distance, length(pointSetX));
                 if ((numPoints >= 7) && (lambda(1) < 1.3) && (numPoints >= maxPoints) && (distance < minDistance + distanceThreshold)) %%THIS USED TO BE 7
+                    
                     leftX = min(pointSetX); topY = max(pointSetY);
                     rightX = max(pointSetX); bottomY = min(pointSetY);
                     diagonal = sqrt((rightX - leftX)^2 + (bottomY - topY)^2);
+                    fprintf("IN FIRST IF diagonal %d\n", (abs(diagonal - 0.127)));
                     %fprintf("line 396!!!!\n");
                     if abs(diagonal - 0.127) <= 0.035
                         
@@ -714,19 +862,39 @@ classdef mrplSystem13 < handle
         
     
         
+%         function droppedOff = checkDroppedOff(obj)
+%             pts = obj.robot.laser.LatestMessage.Ranges;
+%             xArr = []; yArr = [];
+%             for i = 1:length(pts)
+%                 [x,y,th] = obj.irToXy(i, pts(i));
+%                 xArr = [xArr x];
+%                 yArr = [yArr y];
+%                     
+%             end
+%             [droppedOff, ~] = findLineCandidate(obj, pts, xArr, yArr);
+%             
+%             
+%         end
+%         
         function droppedOff = checkDroppedOff(obj)
             pts = obj.robot.laser.LatestMessage.Ranges;
             xArr = []; yArr = [];
+            xArr2 = []; yArr2 = [];
             droppedOff = false;
+            for i = 1:length(pts)
+                [x,y,th] = obj.irToXy(i, pts(i));
+                xArr2 = [xArr2 x];
+                yArr2 = [yArr2 y];
+                  
+            end
+            
             for i = 1:length(pts)
                 [x,y,th] = obj.irToXy(i, pts(i));
                 if ((th <= pi/6) && (th >= -pi/6))
                     xArr = [xArr x];
                     yArr = [yArr y];
-                    if (x < 0.2)
-                        % fprintf("x %d y %d\n", x, y);
-                    end
-                    if ((x > 0.06) && (x < 0.3048) && (abs(y) <0.02))
+                    %fprintf("x %d, y %d\n", x, y);
+                    if ((x > 0.06) && (x < 0.15))
                         droppedOff = true;
                        % fprintf("dropped off!\n");
                         break;
@@ -734,13 +902,20 @@ classdef mrplSystem13 < handle
                     
                 end 
             end
+            figure(2)
+            scatter(xArr, yArr);
+            hold on
+            [droppedOffFindLine, ~] = findLineCandidate(obj, pts, xArr2, yArr2);
+            fprintf("find line said %d\n", droppedOffFindLine);
+            
+        
             
             
         end
     
         function broke = executeTrajectory2(obj, iteration)
                % fprintf("TOP OF EXECUTE TRAJ\n");
-                obj.estRobot.tPrev = 0; 
+                %obj.estRobot.tPrev = 0; JUST TOOK THIS OUT
                 global currval; global currval2;
                 global preval; global preval2;
                 referenceXArr = []; referenceYArr = []; sensedXArr = []; sensedYArr = [];sensedThArr = [];referenceThArr = [];
@@ -881,8 +1056,11 @@ classdef mrplSystem13 < handle
                     
                     [vl, vr]  = robotModel.VwTovlvr(V, w);
                     [vl, vr] = robotModel.limitWheelVelocities([vl, vr]);
-                    
-                    obj.robot.sendVelocity(vl, vr);
+                    if ((isnan(vl)) || (isnan(vr)))
+                        fprintf("V %d, w %d, vl %d, vr %d\n", V, w, vl, vr);
+                    else
+                        obj.robot.sendVelocity(vl, vr);
+                    end
                     pause(0.01);
                     
                     
@@ -914,19 +1092,17 @@ classdef mrplSystem13 < handle
                     obj.sensedY = y(poseEst);
                     obj.sensedTh = th(poseEst);
                     obj.robot.sendVelocity(0,0);
-                    if (iteration ~= 1345)
-                        %figure(1345);
-                        %plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
-                        %%title("Reference Trajectory versus the Sensed Trajectory");
-                        %xlabel('Position x (m)');
-                        %ylabel('Position y (m)');
-                        %legend("reference", "sensed");
-                        %hold on;
-                    end
+                    figure(1345);
+                    plot(referenceXArr, referenceYArr, "r", sensedXArr, sensedYArr, "b", obj.odometryXArr, obj.odometryYArr, "g", obj.lidarXArr, obj.lidarYArr, "k"); 
+                    %title("Reference Trajectory versus the Sensed Trajectory");
+                    xlabel('Position x (m)');
+                    ylabel('Position y (m)');
+                    legend("reference", "sensed", "odometry", "lidar");
+                    hold on;
                 end
                 %if (~obj.pickingUp)
-               % fprintf("Ref final pose x %d, y %d, th %d; Sensed x %d, y %d, th %d; last in ref array x %d, y %d \n", finalPose(1), finalPose(2), finalPose(3), ...
-                    %obj.sensedX, obj.sensedY, obj.sensedTh, referenceXArr(end), referenceYArr(end));
+               %fprintf("Ref final pose x %d, y %d, th %d; Sensed x %d, y %d, th %d; last in ref array x %d, y %d \n", finalPose(1), finalPose(2), finalPose(3), ...
+                %    obj.sensedX, obj.sensedY, obj.sensedTh, referenceXArr(end), referenceYArr(end));
                 %end
                % fprintf("END OF EXECUTE TRAJ\n");
                obj.estRobot.tPrev = 0; 

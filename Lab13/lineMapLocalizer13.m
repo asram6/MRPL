@@ -100,7 +100,7 @@ classdef lineMapLocalizer13 < handle
             jacTh = (fitError(obj, newPose, modelPts) - err2_Plus0)/eps;
             
             J = [jacX, jacY, jacTh];   
-            err2_Plus0 = sqrt(err2_Plus0);    
+            %err2_Plus0 = sqrt(err2_Plus0);    
         end
         
         function [successPts, successIters, errorStop, gradStop, outPose, tend] = refinePose(obj, inPose, pointsInModelFrame, maxIters, robotBodyPts)
@@ -136,15 +136,15 @@ classdef lineMapLocalizer13 < handle
                     worldBodyPts = inPose.bToA()*pointsInModelFrame;
                     %fprintf("here\n");
                     %worldBodyPts
-                    x = [0 0; 0 1.2192]; y = [0 0; 1.2192 0];
-%                     kh = plot(obj.lines_p1, obj.lines_p2);
-%                     kh = plot(x, y);
-%                     axis([-1, 2, -1, 2]); 
-%                     hold on
-%                     ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
-%                     hold on
-%                     kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
-%                     hold off
+                    x = [0 0; 0 (1.2192*2)]; y = [0 0; (1.2192*2) 0];
+                    kh = plot(obj.lines_p1, obj.lines_p2);
+                    kh = plot(x, y);
+                    axis([-1, 3, -1, 3]); 
+                    hold on
+                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+                    hold on
+                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+                    hold off
                     pause(0.001);
                     currIteration = currIteration + 1;
                    
