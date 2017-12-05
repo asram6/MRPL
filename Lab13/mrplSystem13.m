@@ -36,7 +36,7 @@ classdef mrplSystem13 < handle
             tstart = tic;
             while(true)
                 tcurr = toc(tstart);
-                obj.updateSensedState(tcurr, false);
+                obj.updateSensedState(tcurr, false, 30);
             end
         end
         
@@ -78,7 +78,7 @@ classdef mrplSystem13 < handle
             lines13b = [p6 p7 p8];
             obj.pickingUp = true;
 
-            cornerOffset = 0.3;
+            cornerOffset = 0.3048;
             
             p1 = [0 ; cornerOffset];
             p1b = [cornerOffset ; 0];
@@ -116,7 +116,7 @@ classdef mrplSystem13 < handle
             obj.lab13ChallengeTask(); 
         end
         
-        function poseEst = updateStateFromEncodersAtTime(obj,newx,newy,tcurr, bodyPts, flag)
+        function poseEst = updateStateFromEncodersAtTime(obj,newx,newy,tcurr, bodyPts, flag, iterations)
             %fprintf("odometry before update x %d, y %d, th %d\n", obj.estRobot.x, obj.estRobot.y, obj.estRobot.theta);
             if (tcurr ~= 0)
                 obj.estRobot.integrate(newx, newy, tcurr);
@@ -184,7 +184,7 @@ classdef mrplSystem13 < handle
                 pointsInModelFrame = pointsInModelFrame(:, goodIds);
                 
                 %fprintf("beep...");
-                [successPts, successIters, errorStop, gradStop, poseLidar, totalTime] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 30, robotBodyPts);
+                [successPts, successIters, errorStop, gradStop, poseLidar, totalTime] = obj.localizer.refinePose(poseEst, pointsInModelFrame, iterations, robotBodyPts);
                 obj.totalRefinePose = obj.totalRefinePose + 1;
 %                 if (~successIters)
 %                     obj.cutOff = obj.cutOff + 1;
@@ -217,7 +217,7 @@ classdef mrplSystem13 < handle
         end
             
        
-        function updateSensedState(obj, tcurr, flag)
+        function updateSensedState(obj, tcurr, flag, iterations)
             global preval; global currval;
             bodyPts = robotModel.bodyGraph();   
             while (preval == currval)
@@ -228,7 +228,7 @@ classdef mrplSystem13 < handle
             newyEnc = obj.robot.encoders.LatestMessage.Vector.Y;
            % tStart = tic;
            % tcurr = toc(tStart);
-            obj.updateStateFromEncodersAtTime(newxEnc, newyEnc, tcurr, bodyPts, flag);
+            obj.updateStateFromEncodersAtTime(newxEnc, newyEnc, tcurr, bodyPts, flag, iterations);
         end
             
         function moveRelDist(obj,dist, doControlplotting)
@@ -255,16 +255,18 @@ classdef mrplSystem13 < handle
             V = 0;
             tstart = tic;
             tcurr = toc(tstart);
-            %tcurr = toc(tstart);
+            tcurr = toc(tstart);
             %obj.estRobot.tPrev = tcurr;
            % fprintf("before turn before update x %d, y %d, th %d\n", obj.sensedX, obj.sensedY, obj.sensedTh);
-            while (toc(tstart) < seconds)
+            while (tcurr < seconds)
                 tcurr = toc(tstart);
-                obj.updateSensedState(tcurr, flag);
+                obj.updateSensedState(tcurr, flag, 50);
                 [vl, vr]  = robotModel.VwTovlvr(V, w);
                 [vl, vr] = robotModel.limitWheelVelocities([vl, vr]); 
                 obj.robot.sendVelocity(vl, vr);
-                pause(0.5);
+                pause(0.01);
+                
+                tcurr = toc(tstart);
                 
             end
             obj.robot.sendVelocity(0, 0);
@@ -283,7 +285,7 @@ classdef mrplSystem13 < handle
 %             obj.estRobot.prevEncoderY = yEnc;
             
             
-            obj.updateSensedState(tcurr, flag);
+            obj.updateSensedState(tcurr, flag, 70);
             %fprintf("after turn after update x %d, y %d, th %d        odometry x %d, y %d, th %d        lidar x %d, %d, %d\n", obj.sensedX, obj.sensedY, obj.sensedTh, ...
             %    obj.odometryX, obj.odometryY, obj.odometryTh, obj.lidarX, obj.lidarY, obj.lidarTh);
             
@@ -348,7 +350,7 @@ classdef mrplSystem13 < handle
                 end
 %             pickPoses
 %             obj.dropPoses
-            obj.startPose = [0.2286; 0.2286; -pi()/2];
+            obj.startPose = [0.2286; 0.2286; -pi()/2]; %change to -pi/2
             obj.estRobot.x = obj.startPose(1);
             obj.estRobot.y = obj.startPose(2);
             obj.estRobot.theta = obj.startPose(3);
@@ -407,12 +409,19 @@ classdef mrplSystem13 < handle
                 %obj.moveRelDist(0.14, 0);
                 %pause(0.1);
                % fprintf("ABOUT TO GO STRAIGHT\n");
-                obj.robot.sendVelocity(0.1,0.1);
+                tstart = tic;
+                tcurr = toc(tstart);
+                while (tcurr < 1.5)
+                    obj.robot.sendVelocity(0.1,0.1);
+                    pause(0.1);
+                    obj.updateSensedState(0, false, 50);
+                    tcurr = toc(tstart);
+                end   
                 %obj.moveRelDist(0.05, 0);
-                pause(1.5);
+                pause(0.2);
                 obj.robot.sendVelocity(0,0);
                 pause(0.5);
-                obj.updateSensedState(0, false);
+                obj.updateSensedState(0, false, 70);
                 pause(0.5);
                 obj.robot.forksUp();
                 pause(0.5);
@@ -500,7 +509,7 @@ classdef mrplSystem13 < handle
             
             
             pause(0.5);
-            obj.updateSensedState(0, false);
+            obj.updateSensedState(0, false, 70);
             pause(0.5);
             if (~brokenOut)
                 relPickPose = obj.absToRel(absPickPose);
@@ -1012,15 +1021,15 @@ classdef mrplSystem13 < handle
                     
                     if (preval2 ~= currval2)
                           pickUpFlag = false;
-%                         if ~obj.pickingUp
-%                             pickUpFlag = true;
+                         if ~obj.pickingUp
+                             pickUpFlag = true;
 %                         else
 %                             pickUpFlag = false;
-%                         end
-                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, pickUpFlag);
+                         end
+                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, pickUpFlag, 30);
                         preval2 = currval2;
                     else
-                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, true);
+                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, true, 30);
                     end
                     
 %                     if ((count == 10) && (obj.pickingUp))
@@ -1120,10 +1129,10 @@ classdef mrplSystem13 < handle
                         else
                             pickUpFlag = false;
                         end
-                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, pickUpFlag);
+                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, pickUpFlag, 30);
                         preval2 = currval2;
                     else
-                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, true);
+                        poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, true, 30);
                     end
 
                     obj.sensedX = x(poseEst);
