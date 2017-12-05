@@ -3,7 +3,7 @@ classdef mrplSystem13 < handle
         localizer; robot; estRobot; startPose; trajectoryObj;
         errorxarr; erroryarr ; errortharr; varr; warr; tarr; 
         odometryX;odometryY; odometryTh; lidarX; lidarY; sensedX; sensedY; sensedTh;
-        dropPoses; vmax; pickPose; pickingUp; vmaxFirst; onFirst; dropPose; lidarTh;
+        dropPoses; vmax; pickPose; pickingUp; vmaxFirst; onFirst; dropPose; lidarTh; refinePoseTimes; totalRefinePose; cutOff; fewPts;
     end
     
     methods
@@ -48,7 +48,9 @@ classdef mrplSystem13 < handle
         function obj = mrplSystem13()
             obj.vmaxFirst = 0.07;%0.1;
             obj.onFirst = true;
-            
+            obj.refinePoseTimes = [];
+            obj.fewPts = 0;
+            obj.cutOff = 0; obj.totalRefinePose = 0;
             %obj.odometryX = [];obj.odometryY = []; obj.lidarX = []; obj.lidarY = [];
             p1 = [0 ; 0];
             p2 = [ 0 ; 1.2192];
@@ -68,7 +70,7 @@ classdef mrplSystem13 < handle
 
             obj.vmax = 0.07;%0.07;
             
-            obj.localizer = lineMapLocalizer13(lines_p1, lines_p2, 0.3, 0.01, 0.0005);
+            obj.localizer = lineMapLocalizer13(lines_p1, lines_p2, 0.6, 0.01, 0.0005);
             %obj.localizer = lineMapLocalizer13(lines13a, lines13b, 0.3, 0.01, 0.0005);
             
             obj.robot = raspbot('Raspbot-24');
@@ -109,15 +111,18 @@ classdef mrplSystem13 < handle
                 xArr = []; yArr = []; thArr = []; wArr = [];
                 tStart = tic();
                 tcurr = toc(tStart);
+                count = 1;
                 for i = 1:length(pts)
-                    if (mod(i, 5) == 0) %used to be 8
+                    if (count == 5) %used to be 8
+                        count = 0;
                         [x,y,th] = obj.irToXy(i, pts(i));
-                        if ((th <= pi/6) && (th >= -pi/6))
+                        %if ((th <= pi/6) && (th >= -pi/6))
                             xArr = [xArr x];
                             yArr = [yArr y];
                             wArr = [wArr 1.0];
-                        end
+                        %end
                     end
+                    count = count + 1;
                 end
                 tcurr = toc(tStart);
                 %fprintf("boop\n");
@@ -131,8 +136,15 @@ classdef mrplSystem13 < handle
                 pointsInModelFrame = pointsInModelFrame(:, goodIds);
 
                 %fprintf("beep...");
-                
-                [~, poseLidar] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 15, robotBodyPts);
+                [successPts, successIters, poseLidar, totalTime] = obj.localizer.refinePose(poseEst, pointsInModelFrame, 15, robotBodyPts);
+                obj.totalRefinePose = obj.totalRefinePose + 1;
+                if (~successIters)
+                    obj.cutOff = obj.cutOff + 1;
+                end
+                if (~successPts)
+                    obj.fewPts = obj.fewPts
+                end
+                obj.refinePoseTimes = [obj.refinePoseTimes totalTime];
                 %fprintf("boop\n");
                 obj.lidarX = poseLidar.x(); obj.lidarY = poseLidar.y(); obj.lidarTh = poseLidar.th();
                 %step 3: new pest from pest and plid
@@ -245,8 +257,7 @@ classdef mrplSystem13 < handle
                     minDist = dist;
                 end
             end
-            if (~obj.pickingUp)
-            end
+           fprintf("dropping off at x %d, y %d, th %d, legthDropPoses %d\n", closestPose(1), closestPose(2), closestPose(3), length)
            % fprintf("closestPose %d %d, minDist %d, currPose %d %d\n", closestPose(1),closestPose(2),minDist,obj.sensedX, obj.sensedY);
             [poses, ~] = removerows(poses,index);
         end
@@ -286,11 +297,18 @@ classdef mrplSystem13 < handle
             obj.dropPoses = [[0.5344, .1524, -pi/2]; [0.6858, 0.1524, -pi/2];[0.8382, 0.1524, -pi/2]];
             
             while (~isempty(pickPoses)) 
+                obj.pickingUp = true;
                 [obj.pickPose, pickPoses] = obj.getClosestPose(pickPoses);                
                 obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
                 %fprintf("pick up %d %d %d \n", pickPose(1),pickPose(2),pickPose(3));
                 obj.pickDropObject(obj.pickPose);
+                fprintf("mean refine pose time %d\n", mean(obj.refinePoseTimes));
+                obj.refinePoseTimes = [];
+                fprintf("nums cutoff %d, total %d\n", obj.cutOff, obj.totalRefinePose);
+                fprintf("cutting off ratio %d\n", (obj.cutOff/obj.totalRefinePose));
+                obj.cutOff = 0; obj.totalRefinePose = 0;
             end
+            
         end
         
         %TODO: use trajectory here instead, change search area to small
@@ -345,12 +363,15 @@ classdef mrplSystem13 < handle
             
             angle = atan2(relDestPose(2), relDestPose(1));
             obj.turnRelAngle(angle, 0, true);
+            fprintf("nums cutoff %d, total %d\n", obj.cutOff, obj.totalRefinePose);
+            fprintf("cutting off ratio %d\n", (obj.cutOff/obj.totalRefinePose));
+            obj.cutOff = 0; obj.totalRefinePose = 0;
                         
             obj.startPose = [obj.sensedX; obj.sensedY; obj.sensedTh];
             relDestPose = obj.absToRel(absDestPose);
             
             %fprintf("rel drop pose %d %d %d \n", relDestPose(1), relDestPose(2), relDestPose(3));
-            %fprintf("abs drop pose %d %d %d \n", absDropPose(1), absDropPose(2), absDropPose(3));
+            fprintf("abs drop pose %d %d %d \n", absDropPose(1), absDropPose(2), absDropPose(3));
             obj.executeTrajectoryToAbsPose(absDropPose(1),absDropPose(2),absDropPose(3),obj.vmaxFirst, 1, 1, 1);
             obj.robot.forksDown();
             pause(0.5);
@@ -364,6 +385,7 @@ classdef mrplSystem13 < handle
                 fprintf("IN NOT DROPPED OFF\n");
                 obj.dropPoses = [obj.dropPoses; obj.dropPose];
             end
+            obj.pickingUp = true;
         end
         
         function pickDropObject(obj, absPickPose)
@@ -381,14 +403,14 @@ classdef mrplSystem13 < handle
             
             %currPose = [obj.sensedX, obj.sensedY, obj.sensedTh];
             turnAngle = atan2(acqPose(2), acqPose(1));
-            %fprintf("ACQ POSE x %d, y %d, th %d,   turnangle %d\n", acqPose(1), acqPose(2), acqPose(3), turnAngle);
+            fprintf("ACQ POSE x %d, y %d, th %d,   turnangle %d\n", acqPose(1), acqPose(2), acqPose(3), turnAngle);
             %turnAngle = acqPose(3);
             turnThreshold = pi/16;
             if (turnAngle > turnThreshold) %can change angle threshold
                 obj.turnRelAngle(turnAngle, 0, false); %test to see if negative
             end
             
-            %fprintf("current pose %d %d %d \n", obj.sensedX, obj.sensedY, obj.sensedTh);
+            fprintf("current pose %d %d %d \n", obj.sensedX, obj.sensedY, obj.sensedTh);
             %fprintf("abs acq pose %d %d %d \n", absAcqPose(1), absAcqPose(2), absAcqPose(3));
             
             %FIRST MOTION
@@ -454,8 +476,8 @@ classdef mrplSystem13 < handle
                         %end
                     %end
                 end
-                figure(1);
-                scatter(xArr, yArr);
+                %figure(1);
+                %scatter(xArr, yArr);
                 pause(0.5);
             end
         
@@ -564,15 +586,15 @@ classdef mrplSystem13 < handle
                         end
                         orientation = atan2(2*Ixy,Iyy-Ixx)/2.0;
                         centroidXFinal = centroidX; centroidYFinal = centroidY; 
-                        figure(7);
+                       % figure(7);
                         if (((orientation < 0)))% && (centroidX > 0)) || ((orientation >= 0) && (centroidX <= 0)))
                            
-                            plot([leftX, rightX], [bottomY, topY]);
+                            %plot([leftX, rightX], [bottomY, topY]);
                         else
-                            plot([leftX, rightX], [topY, bottomY]);
+                            %plot([leftX, rightX], [topY, bottomY]);
                         end
-                        hold on;
-                        plot(centroidX, centroidY, 'r*');
+                        %hold on;
+                        %plot(centroidX, centroidY, 'r*');
                         %fprintf("centroidx %d, centroidy %d, orientation %d \n", centroidX, centroidY, orientation);
                         palletPose = [centroidXFinal, centroidYFinal, orientation];
                         absPose = obj.relToAbs(palletPose);
@@ -704,9 +726,9 @@ classdef mrplSystem13 < handle
                 lastT = trajectory.getTrajectoryDuration();
                 
                 tao = 2.5; %2.5;%0.6;%0.4;%.27; %0.7;
-                taoX = 1.0;%3.5;%3.25; %2.5; 
-                taoTh = 1.0;%1.5;%2.5;%2.0;
-                taoY = 1.0;%1.5;%2.0;%2.5;
+                taoX = 1.5;%3.5;%3.25; %2.5; 
+                taoTh = 1.5;%1.5;%2.5;%2.0;
+                taoY = 1.5;%1.5;%2.0;%2.5;
                 finalPose = trajectory.getFinalPose();
               %  fprintf("Ref final pose x %d, y %d, th %d; Sensed x %d, y %d, th %d\n", finalPose(1), finalPose(2), finalPose(3), ...
                %     obj.sensedX, obj.sensedY, obj.sensedTh);
@@ -744,11 +766,12 @@ classdef mrplSystem13 < handle
                     end
                     
                     if (preval2 ~= currval2)
-                        if ~obj.pickingUp
-                            pickUpFlag = true;
-                        else
-                            pickUpFlag = false;
-                        end
+                          pickUpFlag = false;
+%                         if ~obj.pickingUp
+%                             pickUpFlag = true;
+%                         else
+%                             pickUpFlag = false;
+%                         end
                         poseEst = obj.updateStateFromEncodersAtTime(newxEnc,newyEnc,tcurr, bodyPts, pickUpFlag);
                         preval2 = currval2;
                     else
@@ -860,13 +883,13 @@ classdef mrplSystem13 < handle
                     obj.sensedTh = th(poseEst);
                     obj.robot.sendVelocity(0,0);
                     if (iteration ~= 1345)
-                        figure(1345);
-                        plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
-                        title("Reference Trajectory versus the Sensed Trajectory");
-                        xlabel('Position x (m)');
-                        ylabel('Position y (m)');
-                        legend("reference", "sensed");
-                        hold on;
+                        %figure(1345);
+                        %plot(referenceXArr, referenceYArr, sensedXArr, sensedYArr); 
+                        %%title("Reference Trajectory versus the Sensed Trajectory");
+                        %xlabel('Position x (m)');
+                        %ylabel('Position y (m)');
+                        %legend("reference", "sensed");
+                        %hold on;
                     end
                 end
                 %if (~obj.pickingUp)

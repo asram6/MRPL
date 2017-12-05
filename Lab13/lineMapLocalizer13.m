@@ -4,7 +4,8 @@ classdef lineMapLocalizer13 < handle
     % the map.    
     properties(Constant)        
         maxErr = 0.05; % 5 cm       
-        minPts = 5; % min # of points that must match    
+        minPts = 5; % min # of points that must match  
+        
     end
     
     properties(Access = private)   
@@ -16,6 +17,7 @@ classdef lineMapLocalizer13 < handle
         gain = 0.0;     
         errThresh = 0.0;     
         gradThresh = 0.0;   
+        times = [];
     end
     
     methods
@@ -101,15 +103,21 @@ classdef lineMapLocalizer13 < handle
             err2_Plus0 = sqrt(err2_Plus0);    
         end
         
-        function [success, outPose] = refinePose(obj, inPose, pointsInModelFrame, maxIters, robotBodyPts)
+        function [successPts, successIters, errorStop, gradStop, outPose, tend] = refinePose(obj, inPose, pointsInModelFrame, maxIters, robotBodyPts)
             err = 100;
             grad = 100;
             errArr = [];
             currIteration = 0;
             ptsThresh = 5;
             outPose = inPose;
+            tstart = tic;
+            successPts = true;
+            successIters = true;
+            outPose = inPose;
+            errorStop = false;
+            gradStop = false;
             if (length(pointsInModelFrame) < ptsThresh)
-                success = false;
+                successPts = false;
             else
                 
                 while((err >= obj.errThresh) && (grad >= obj.gradThresh) && (currIteration < maxIters))
@@ -129,29 +137,42 @@ classdef lineMapLocalizer13 < handle
                     %fprintf("here\n");
                     %worldBodyPts
                     x = [0 0; 0 1.2192]; y = [0 0; 1.2192 0];
-                    kh = plot(obj.lines_p1, obj.lines_p2);
-                    kh = plot(x, y);
-                    axis([-1, 2, -1, 2]); 
-                    hold on
-                    ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
-                    hold on
-                    dim = length(worldBodyPts)
-                    kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
-                    hold off
+%                     kh = plot(obj.lines_p1, obj.lines_p2);
+%                     kh = plot(x, y);
+%                     axis([-1, 2, -1, 2]); 
+%                     hold on
+%                     ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+%                     hold on
+%                     kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+%                     hold off
                     pause(0.001);
                     currIteration = currIteration + 1;
                    
                    
                 end
-                
+                kh = plot(obj.lines_p1, obj.lines_p2);
+                kh = plot(x, y);
+                axis([-1, 2, -1, 2]); 
+                hold on
+                ph2 = plot(robotBodyPts(1,:), robotBodyPts(2,:));
+                hold on
+                kh = scatter(worldBodyPts(1,:),worldBodyPts(2,:));
+                hold off
+                if (err < obj.errThresh)
+                    errorStop = true;
+                end
+                if (grad < obj.gradThresh)
+                    gradStop = true;
+                end
                 if (err >= obj.errThresh && grad >= obj.gradThresh)
-                    success = false;
-                else
-                    success = true;
+                    successIters = false;
+                    %fprintf("MAX ITERS CUT OFF\n");
                 end
                 outPose = inPose;
-                %fprintf("refine pose %d, %d, %d", outPose.x(), outPose.y(), outPose.th());
+                %fprintf("refine pose time %d\n", tend);
             end
+            tend = toc(tstart);
+
             
           
             
